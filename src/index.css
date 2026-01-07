@@ -1,3 +1,114 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* -----------------------
+   WhatsApp / Signal UI
+------------------------ */
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont;
+}
+
+/* Screens */
+.rooms-screen,
+.chat-screen {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+
+/* Top bars */
+.top-bar,
+.chat-header {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  background: #f6f6f6;
+  border-bottom: 1px solid #ddd;
+}
+
+.chat-header button {
+  margin-right: 10px;
+  font-size: 18px;
+  background: none;
+  border: none;
+}
+
+/* Rooms list */
+.room-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.room-item {
+  display: flex;
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.room-item:hover {
+  background: #f9f9f9;
+}
+
+.avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #ccc;
+  margin-right: 12px;
+}
+
+/* Messages */
+.messages {
+  flex: 1;
+  padding: 10px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.bubble {
+  max-width: 70%;
+  padding: 8px 12px;
+  margin: 4px 0;
+  border-radius: 14px;
+  font-size: 14px;
+}
+
+.me {
+  background: #dcf8c6;
+  align-self: flex-end;
+}
+
+.other {
+  background: #eee;
+  align-self: flex-start;
+}
+
+/* Input bar (fixed bottom) */
+.input-bar {
+  display: flex;
+  padding: 8px;
+  border-top: 1px solid #ddd;
+  background: #fff;
+}
+
+.input-bar input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 20px;
+  outline: none;
+}
+
+.input-bar button {
+  margin-left: 8px;
+  padding: 0 16px;
+  border-radius: 20px;
+  border: none;
+  background: #0b93f6;
+  color: white;
+}
