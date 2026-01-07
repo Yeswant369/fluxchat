@@ -21,81 +21,103 @@ export default function App() {
   const [roomName, setRoomName] = useState("");
   const [joinRoomId, setJoinRoomId] = useState("");
 
-  /* ---------- AUTH ---------- */
+  /* ================= AUTH ================= */
   useEffect(() => {
     return auth.onAuthStateChanged((u) => {
       if (u) setUser(u);
     });
   }, []);
 
-  /* ---------- ROOMS LIST ---------- */
+  /* ================= ROOMS LIST ================= */
   useEffect(() => {
     if (!user) return;
+
     return onSnapshot(collection(db, "rooms"), (snap) => {
-      setRooms(
-        snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((r) => r.members?.includes(user.uid))
-      );
+      const list = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((r) => r.members?.includes(user.uid));
+      setRooms(list);
     });
   }, [user]);
 
-  /* ---------- MESSAGES ---------- */
+  /* ================= MESSAGES ================= */
   useEffect(() => {
     if (!activeRoom) return;
+
     const q = query(
       collection(db, "rooms", activeRoom.id, "messages"),
       orderBy("createdAt")
     );
+
     return onSnapshot(q, (snap) => {
       setMessages(snap.docs.map((d) => d.data()));
     });
   }, [activeRoom]);
 
-  /* ---------- CREATE ROOM ---------- */
+  /* ================= CREATE ROOM ================= */
   const createRoom = async () => {
-    if (!roomName) return;
+    if (!roomName || !user) return;
+
     const id = crypto.randomUUID().slice(0, 8);
-    await setDoc(doc(db, "rooms", id), {
-      name: roomName,
-      members: [user.uid],
-      createdAt: serverTimestamp(),
-    });
-    setRoomName("");
-  };
 
-  /* ---------- JOIN ROOM ---------- */
-  const joinRoom = async () => {
-    if (!joinRoomId) return;
-    const ref = doc(db, "rooms", joinRoomId);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) return alert("Room not found");
-
-    const data = snap.data();
-    if (!data.members.includes(user.uid)) {
-      await setDoc(ref, {
-        ...data,
-        members: [...data.members, user.uid],
+    try {
+      await setDoc(doc(db, "rooms", id), {
+        name: roomName,
+        ownerId: user.uid,           // 🔑 REQUIRED BY RULES
+        members: [user.uid],
+        createdAt: serverTimestamp(),
       });
+      setRoomName("");
+    } catch (e) {
+      alert("Create room failed: " + e.message);
     }
-    setJoinRoomId("");
   };
 
-  /* ---------- SEND MESSAGE ---------- */
+  /* ================= JOIN ROOM ================= */
+  const joinRoom = async () => {
+    if (!joinRoomId || !user) return;
+
+    try {
+      const ref = doc(db, "rooms", joinRoomId);
+      const snap = await getDoc(ref);
+
+      if (!snap.exists()) return alert("Room not found");
+
+      const data = snap.data();
+
+      if (!data.members.includes(user.uid)) {
+        await setDoc(
+          ref,
+          { members: [...data.members, user.uid] },
+          { merge: true }
+        );
+      }
+
+      setJoinRoomId("");
+    } catch (e) {
+      alert("Join failed: " + e.message);
+    }
+  };
+
+  /* ================= SEND MESSAGE ================= */
   const sendMessage = async () => {
     if (!text || !activeRoom) return;
-    await addDoc(collection(db, "rooms", activeRoom.id, "messages"), {
-      text,
-      sender: user.uid,
-      createdAt: serverTimestamp(),
-    });
-    setText("");
-  };
 
-  /* ================= UI ================= */
+    try {
+      await addDoc(collection(db, "rooms", activeRoom.id, "messages"), {
+        text,
+        sender: user.uid,
+        createdAt: serverTimestamp(),
+      });
+      setText("");
+    } catch (e) {
+      alert("Send failed: " + e.message);
+    }
+  };
 
   if (!user) return null;
 
+  /* ================= UI ================= */
   return (
     <div className="h-screen bg-gray-100 flex flex-col max-w-md mx-auto">
 
@@ -132,7 +154,7 @@ export default function App() {
               className="bg-white rounded-xl p-4 mb-2 flex items-center shadow active:scale-95"
             >
               <div className="w-12 h-12 rounded-full bg-blue-500 text-white flex items-center justify-center mr-3">
-                {r.name[0]}
+                {r.name?.[0]?.toUpperCase()}
               </div>
               <div className="flex-1">
                 <div className="font-semibold">{r.name}</div>
@@ -163,7 +185,7 @@ export default function App() {
         </div>
       )}
 
-      {/* INPUT */}
+      {/* MESSAGE INPUT */}
       {activeRoom && (
         <div className="bg-white p-2 flex items-center gap-2">
           <input
