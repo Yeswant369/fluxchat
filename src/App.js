@@ -11,85 +11,82 @@ import {
   setDoc
 } from "firebase/firestore";
 
-const ROOM_ID = "private-room-1"; // locked room
-
-export default function App() {
+function App() {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
+
   const user = auth.currentUser;
+  const roomId = user?.uid; // 🔐 private room per user
 
-  // Create room ONCE
   useEffect(() => {
-    if (!user) return;
+    if (!roomId) return;
 
-    const roomRef = doc(db, "rooms", ROOM_ID);
-
-    setDoc(roomRef, {
-      name: "Private Chat",
-      ownerId: user.uid,
-      members: {
-        [user.uid]: true
+    // Ensure room exists
+    setDoc(
+      doc(db, "rooms", roomId),
+      {
+        owner: user.uid,
+        members: [user.uid],
+        createdAt: serverTimestamp(),
       },
-      createdAt: serverTimestamp()
-    }, { merge: true });
-
-  }, [user]);
-
-  // Listen to messages
-  useEffect(() => {
-    if (!user) return;
+      { merge: true }
+    );
 
     const q = query(
-      collection(db, "rooms", ROOM_ID, "messages"),
+      collection(db, "rooms", roomId, "messages"),
       orderBy("createdAt")
     );
 
-    return onSnapshot(q, snap => {
-      setMessages(snap.docs.map(d => d.data()));
+    const unsub = onSnapshot(q, (snap) => {
+      setMessages(snap.docs.map((d) => d.data()));
     });
-  }, [user]);
+
+    return unsub;
+  }, [roomId, user]);
 
   const sendMessage = async () => {
     if (!text.trim()) return;
 
-    await addDoc(
-      collection(db, "rooms", ROOM_ID, "messages"),
-      {
-        text,
-        senderId: user.uid,
-        senderName: "User",
-        createdAt: serverTimestamp()
-      }
-    );
+    await addDoc(collection(db, "rooms", roomId, "messages"), {
+      text,
+      senderId: user.uid,
+      createdAt: serverTimestamp(),
+    });
 
     setText("");
   };
 
   return (
-    <div className="p-4 max-w-xl mx-auto">
-      <h2 className="font-bold text-xl mb-4">🔒 Private Room</h2>
+    <div style={{ maxWidth: 600, margin: "40px auto" }}>
+      <h2>🔒 Private Room</h2>
 
-      <div className="border h-80 overflow-y-auto p-2 mb-2">
+      <div
+        style={{
+          height: 300,
+          border: "1px solid #ddd",
+          padding: 10,
+          overflowY: "auto",
+          marginBottom: 10,
+        }}
+      >
         {messages.map((m, i) => (
           <div key={i}>
-            <b>{m.senderName}:</b> {m.text}
+            <b>{m.senderId === user.uid ? "You" : "Other"}:</b> {m.text}
           </div>
         ))}
       </div>
 
-      <div className="flex gap-2">
+      <div style={{ display: "flex", gap: 10 }}>
         <input
-          className="border flex-1 p-2"
           value={text}
-          onChange={e => setText(e.target.value)}
+          onChange={(e) => setText(e.target.value)}
+          style={{ flex: 1, padding: 8 }}
+          placeholder="Type a message..."
         />
-        <button
-          onClick={sendMessage}
-          className="bg-blue-600 text-white px-4"
-        >
-          Send
-        </button>
+        <button onClick={sendMessage}>Send</button>
       </div>
     </div>
   );
 }
+
+export default App;
