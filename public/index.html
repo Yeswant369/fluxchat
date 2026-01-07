@@ -1,43 +1,175 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta
-      name="description"
-      content="Web site created using create-react-app"
-    />
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
-    <!--
-      manifest.json provides metadata used when your web app is installed on a
-      user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
-    -->
-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <!--
-      Notice the use of %PUBLIC_URL% in the tags above.
-      It will be replaced with the URL of the `public` folder during the build.
-      Only files inside the `public` folder can be referenced from the HTML.
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Signal Chat UI</title>
 
-      Unlike "/favicon.ico" or "favicon.ico", "%PUBLIC_URL%/favicon.ico" will
-      work correctly both with client-side routing and a non-root public URL.
-      Learn how to configure a non-root public URL by running `npm run build`.
-    -->
-    <title>React App</title>
-  </head>
-  <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
-    <!--
-      This HTML file is a template.
-      If you open it directly in the browser, you will see an empty page.
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-      You can add webfonts, meta tags, or analytics to this file.
-      The build step will place the bundled scripts into the <body> tag.
+<style>
+/* ====== UNCHANGED ORIGINAL STYLES ====== */
+:root {
+  --signal-blue:#2C6BED;
+  --ios-curve:cubic-bezier(0.4,0,0.2,1);
+}
+body{
+  font-family:'Inter',sans-serif;
+  background:#000;height:100dvh;margin:0;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+}
+.bg-signal-blue{background-color:var(--signal-blue);}
+.scrollbar-hide::-webkit-scrollbar{display:none;}
+#main-app{display:flex;width:100%;height:100%;background:#fff;overflow:hidden;}
+#sidebar,#main-chat{height:100%;transition:transform .5s var(--ios-curve),opacity .4s ease;}
+@media(max-width:767px){
+  #sidebar{width:100%;position:absolute;z-index:10}
+  #main-chat{width:100%;position:absolute;transform:translateX(100%);z-index:20}
+  .view-list #sidebar{transform:translateX(0)}
+  .view-chat #sidebar{transform:translateX(-25%);opacity:.9}
+  .view-chat #main-chat{transform:translateX(0)}
+}
+@media(min-width:768px){
+  #main-app{height:95dvh;max-width:1280px;border-radius:1.25rem;border:1px solid #e5e7eb}
+  #sidebar{width:360px;border-right:1px solid #f3f4f6}
+  #main-chat{flex:1;transform:none!important}
+}
+.btn-touch{transition:.15s ease}
+.btn-touch:active{transform:scale(.92);opacity:.7}
+.chat-list-item{transition:.2s ease}
+.chat-list-item:active{transform:scale(.98);background:#f0f2f5}
+.active-chat{background:#e8effd!important}
+.message-appear{animation:popIn .3s cubic-bezier(.175,.885,.32,1.2)}
+@keyframes popIn{
+  from{opacity:0;transform:scale(.9) translateY(10px)}
+  to{opacity:1;transform:scale(1) translateY(0)}
+}
+</style>
+</head>
 
-      To begin the development, run `npm start` or `yarn start`.
-      To create a production bundle, use `npm run build` or `yarn build`.
-    -->
-  </body>
+<body class="view-list">
+
+<div id="main-app">
+
+<!-- SIDEBAR -->
+<aside id="sidebar" class="flex flex-col">
+<div class="p-6 flex justify-between items-center">
+<h1 class="font-bold text-2xl">Chats</h1>
+</div>
+
+<div id="contact-list" class="flex-1 px-3">
+<div id="contact-General"
+ class="chat-list-item p-4 rounded-2xl flex items-center gap-4 cursor-pointer active-chat"
+ onclick="switchChat('General')">
+<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=General"
+ class="w-14 h-14 rounded-full bg-blue-100">
+<div class="flex-1">
+<div class="flex justify-between">
+<span class="font-bold">General</span>
+<span class="text-xs text-gray-400">Live</span>
+</div>
+<p class="text-sm text-gray-500">Welcome to the common chat room.</p>
+</div>
+</div>
+</div>
+</aside>
+
+<!-- CHAT -->
+<main id="main-chat" class="flex flex-col">
+<header class="h-20 flex items-center px-6 border-b">
+<button onclick="goBack()" class="md:hidden mr-3">←</button>
+<h2 id="current-chat-name" class="font-bold text-lg">General</h2>
+</header>
+
+<div id="messages-container"
+ class="flex-1 overflow-y-auto px-6 py-6 space-y-4 scrollbar-hide bg-white">
+</div>
+
+<footer class="p-4 border-t">
+<div class="flex gap-3">
+<textarea id="message-input"
+ placeholder="Signal Message"
+ rows="1"
+ class="flex-1 bg-gray-50 rounded-2xl px-4 py-2 resize-none"></textarea>
+<button id="send-btn"
+ class="btn-touch w-12 h-12 bg-signal-blue text-white rounded-full flex items-center justify-center">
+➤
+</button>
+</div>
+</footer>
+</main>
+</div>
+
+<!-- ===== FIREBASE (PUBLIC CHAT) ===== -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+<script>
+/* ===== FIREBASE CONFIG ===== */
+firebase.initializeApp({
+  apiKey:"AIzaSyCY2qB4sbPs_7BIz355cQiQkDDqK-S_z4I",
+  projectId:"flux-chat-b9cb2"
+});
+const db=firebase.firestore();
+
+/* ===== UI LOGIC (UNCHANGED) ===== */
+const messagesContainer=document.getElementById('messages-container');
+const messageInput=document.getElementById('message-input');
+const sendBtn=document.getElementById('send-btn');
+const CHAT_ID="general";
+
+function switchChat(){
+ document.body.className='view-chat';
+}
+function goBack(){
+ document.body.className='view-list';
+}
+
+/* ===== REALTIME LISTENER ===== */
+db.collection("public")
+ .doc(CHAT_ID)
+ .collection("messages")
+ .orderBy("createdAt")
+ .onSnapshot(snap=>{
+   messagesContainer.innerHTML=`
+   <div class="flex justify-center mb-4">
+     <span class="text-xs text-gray-400">SIGNAL MESSAGE</span>
+   </div>`;
+   snap.forEach(doc=>{
+     const m=doc.data();
+     messagesContainer.insertAdjacentHTML("beforeend",`
+     <div class="flex justify-end message-appear">
+       <div class="bg-signal-blue text-white px-4 py-3 rounded-[1.25rem] rounded-br-none max-w-[80%]">
+         ${m.text}
+       </div>
+     </div>`);
+   });
+   messagesContainer.scrollTop=messagesContainer.scrollHeight;
+ });
+
+/* ===== SEND MESSAGE ===== */
+sendBtn.onclick=async()=>{
+ const text=messageInput.value.trim();
+ if(!text)return;
+ await db.collection("public").doc(CHAT_ID)
+  .collection("messages")
+  .add({
+    text,
+    createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  });
+ messageInput.value='';
+ messageInput.style.height='auto';
+};
+
+/* ===== AUTO RESIZE ===== */
+messageInput.addEventListener('input',()=>{
+ messageInput.style.height='auto';
+ messageInput.style.height=messageInput.scrollHeight+'px';
+});
+
+/* ===== INIT ===== */
+switchChat();
+</script>
+</body>
 </html>
