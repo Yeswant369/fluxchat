@@ -9,7 +9,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
-/* ====== UNCHANGED ORIGINAL STYLES ====== */
 :root {
   --signal-blue:#2C6BED;
   --ios-curve:cubic-bezier(0.4,0,0.2,1);
@@ -48,38 +47,14 @@ body{
 </style>
 </head>
 
-<body class="view-list">
+<body class="view-chat">
 
 <div id="main-app">
 
-<!-- SIDEBAR -->
-<aside id="sidebar" class="flex flex-col">
-<div class="p-6 flex justify-between items-center">
-<h1 class="font-bold text-2xl">Chats</h1>
-</div>
-
-<div id="contact-list" class="flex-1 px-3">
-<div id="contact-General"
- class="chat-list-item p-4 rounded-2xl flex items-center gap-4 cursor-pointer active-chat"
- onclick="switchChat('General')">
-<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=General"
- class="w-14 h-14 rounded-full bg-blue-100">
-<div class="flex-1">
-<div class="flex justify-between">
-<span class="font-bold">General</span>
-<span class="text-xs text-gray-400">Live</span>
-</div>
-<p class="text-sm text-gray-500">Welcome to the common chat room.</p>
-</div>
-</div>
-</div>
-</aside>
-
 <!-- CHAT -->
-<main id="main-chat" class="flex flex-col">
+<main id="main-chat" class="flex flex-col w-full">
 <header class="h-20 flex items-center px-6 border-b">
-<button onclick="goBack()" class="md:hidden mr-3">←</button>
-<h2 id="current-chat-name" class="font-bold text-lg">General</h2>
+<h2 class="font-bold text-lg">General</h2>
 </header>
 
 <div id="messages-container"
@@ -101,75 +76,89 @@ body{
 </main>
 </div>
 
-<!-- ===== FIREBASE (PUBLIC CHAT) ===== -->
+<!-- 🔥 FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <script>
-/* ===== FIREBASE CONFIG ===== */
+/* 🔥 FIREBASE CONFIG */
 firebase.initializeApp({
-  apiKey:"AIzaSyCY2qB4sbPs_7BIz355cQiQkDDqK-S_z4I",
-  projectId:"flux-chat-b9cb2"
+  apiKey: "YOUR_API_KEY",
+  projectId: "YOUR_PROJECT_ID"
 });
-const db=firebase.firestore();
+const db = firebase.firestore();
 
-/* ===== UI LOGIC (UNCHANGED) ===== */
-const messagesContainer=document.getElementById('messages-container');
-const messageInput=document.getElementById('message-input');
-const sendBtn=document.getElementById('send-btn');
-const CHAT_ID="general";
+/* 🔥 UNIQUE USER ID (LOCAL, NO LOGIN) */
+const MY_ID = localStorage.getItem("signal_id") || crypto.randomUUID();
+localStorage.setItem("signal_id", MY_ID);
 
-function switchChat(){
- document.body.className='view-chat';
-}
-function goBack(){
- document.body.className='view-list';
-}
+/* UI ELEMENTS */
+const messagesContainer = document.getElementById('messages-container');
+const messageInput = document.getElementById('message-input');
+const sendBtn = document.getElementById('send-btn');
+const CHAT_ID = "general";
 
-/* ===== REALTIME LISTENER ===== */
+/* 🔥 REALTIME LISTENER */
 db.collection("public")
- .doc(CHAT_ID)
- .collection("messages")
- .orderBy("createdAt")
- .onSnapshot(snap=>{
-   messagesContainer.innerHTML=`
-   <div class="flex justify-center mb-4">
-     <span class="text-xs text-gray-400">SIGNAL MESSAGE</span>
-   </div>`;
-   snap.forEach(doc=>{
-     const m=doc.data();
-     messagesContainer.insertAdjacentHTML("beforeend",`
-     <div class="flex justify-end message-appear">
-       <div class="bg-signal-blue text-white px-4 py-3 rounded-[1.25rem] rounded-br-none max-w-[80%]">
-         ${m.text}
-       </div>
-     </div>`);
-   });
-   messagesContainer.scrollTop=messagesContainer.scrollHeight;
- });
-
-/* ===== SEND MESSAGE ===== */
-sendBtn.onclick=async()=>{
- const text=messageInput.value.trim();
- if(!text)return;
- await db.collection("public").doc(CHAT_ID)
+  .doc(CHAT_ID)
   .collection("messages")
-  .add({
-    text,
-    createdAt:firebase.firestore.FieldValue.serverTimestamp()
+  .orderBy("createdAt")
+  .onSnapshot(snap => {
+
+    messagesContainer.innerHTML = `
+      <div class="flex justify-center mb-4">
+        <span class="text-xs text-gray-400">SIGNAL MESSAGE</span>
+      </div>`;
+
+    snap.forEach(doc => {
+      const m = doc.data();
+      const isMe = m.sender === MY_ID;
+
+      messagesContainer.insertAdjacentHTML(
+        "beforeend",
+        isMe
+          ? `
+          <div class="flex justify-end message-appear">
+            <div class="bg-signal-blue text-white px-4 py-3 rounded-[1.25rem] rounded-br-none max-w-[80%]">
+              ${m.text}
+            </div>
+          </div>`
+          : `
+          <div class="flex justify-start message-appear">
+            <div class="bg-gray-100 text-gray-800 px-4 py-3 rounded-[1.25rem] rounded-bl-none max-w-[80%]">
+              ${m.text}
+            </div>
+          </div>`
+      );
+    });
+
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
   });
- messageInput.value='';
- messageInput.style.height='auto';
+
+/* 🔥 SEND MESSAGE */
+sendBtn.onclick = async () => {
+  const text = messageInput.value.trim();
+  if (!text) return;
+
+  await db.collection("public")
+    .doc(CHAT_ID)
+    .collection("messages")
+    .add({
+      text,
+      sender: MY_ID,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+  messageInput.value = '';
+  messageInput.style.height = 'auto';
 };
 
-/* ===== AUTO RESIZE ===== */
-messageInput.addEventListener('input',()=>{
- messageInput.style.height='auto';
- messageInput.style.height=messageInput.scrollHeight+'px';
+/* AUTO RESIZE */
+messageInput.addEventListener('input', () => {
+  messageInput.style.height = 'auto';
+  messageInput.style.height = messageInput.scrollHeight + 'px';
 });
-
-/* ===== INIT ===== */
-switchChat();
 </script>
+
 </body>
 </html>
