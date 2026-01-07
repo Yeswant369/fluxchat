@@ -10,6 +10,8 @@ import {
   doc,
   setDoc,
   getDoc,
+  updateDoc,
+  arrayUnion,
 } from "firebase/firestore";
 
 export default function App() {
@@ -21,103 +23,91 @@ export default function App() {
   const [roomName, setRoomName] = useState("");
   const [joinRoomId, setJoinRoomId] = useState("");
 
-  /* ================= AUTH ================= */
+  /* ---------- AUTH ---------- */
   useEffect(() => {
     return auth.onAuthStateChanged((u) => {
       if (u) setUser(u);
     });
   }, []);
 
-  /* ================= ROOMS LIST ================= */
+  /* ---------- ROOMS LIST ---------- */
   useEffect(() => {
     if (!user) return;
-
     return onSnapshot(collection(db, "rooms"), (snap) => {
-      const list = snap.docs
-        .map((d) => ({ id: d.id, ...d.data() }))
-        .filter((r) => r.members?.includes(user.uid));
-      setRooms(list);
+      setRooms(
+        snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((r) => r.members?.includes(user.uid))
+      );
     });
   }, [user]);
 
-  /* ================= MESSAGES ================= */
+  /* ---------- MESSAGES ---------- */
   useEffect(() => {
     if (!activeRoom) return;
-
     const q = query(
       collection(db, "rooms", activeRoom.id, "messages"),
       orderBy("createdAt")
     );
-
     return onSnapshot(q, (snap) => {
       setMessages(snap.docs.map((d) => d.data()));
     });
   }, [activeRoom]);
 
-  /* ================= CREATE ROOM ================= */
+  /* ---------- CREATE ROOM ---------- */
   const createRoom = async () => {
-    if (!roomName || !user) return;
+    if (!roomName.trim()) return;
 
-    const id = crypto.randomUUID().slice(0, 8);
+    const roomId = crypto.randomUUID().slice(0, 8);
 
-    try {
-      await setDoc(doc(db, "rooms", id), {
-        name: roomName,
-        ownerId: user.uid,           // 🔑 REQUIRED BY RULES
-        members: [user.uid],
-        createdAt: serverTimestamp(),
-      });
-      setRoomName("");
-    } catch (e) {
-      alert("Create room failed: " + e.message);
-    }
+    await setDoc(doc(db, "rooms", roomId), {
+      name: roomName,
+      ownerId: user.uid,            // 🔴 REQUIRED
+      members: [user.uid],           // 🔴 REQUIRED
+      createdAt: serverTimestamp(),
+    });
+
+    setRoomName("");
   };
 
-  /* ================= JOIN ROOM ================= */
+  /* ---------- JOIN ROOM ---------- */
   const joinRoom = async () => {
-    if (!joinRoomId || !user) return;
+    if (!joinRoomId.trim()) return;
 
-    try {
-      const ref = doc(db, "rooms", joinRoomId);
-      const snap = await getDoc(ref);
+    const ref = doc(db, "rooms", joinRoomId);
+    const snap = await getDoc(ref);
 
-      if (!snap.exists()) return alert("Room not found");
-
-      const data = snap.data();
-
-      if (!data.members.includes(user.uid)) {
-        await setDoc(
-          ref,
-          { members: [...data.members, user.uid] },
-          { merge: true }
-        );
-      }
-
-      setJoinRoomId("");
-    } catch (e) {
-      alert("Join failed: " + e.message);
+    if (!snap.exists()) {
+      alert("Room not found");
+      return;
     }
+
+    const data = snap.data();
+
+    if (!data.members.includes(user.uid)) {
+      await updateDoc(ref, {
+        members: arrayUnion(user.uid), // 🔴 CRITICAL FIX
+      });
+    }
+
+    setJoinRoomId("");
   };
 
-  /* ================= SEND MESSAGE ================= */
+  /* ---------- SEND MESSAGE ---------- */
   const sendMessage = async () => {
-    if (!text || !activeRoom) return;
+    if (!text.trim() || !activeRoom) return;
 
-    try {
-      await addDoc(collection(db, "rooms", activeRoom.id, "messages"), {
-        text,
-        sender: user.uid,
-        createdAt: serverTimestamp(),
-      });
-      setText("");
-    } catch (e) {
-      alert("Send failed: " + e.message);
-    }
+    await addDoc(collection(db, "rooms", activeRoom.id, "messages"), {
+      text,
+      sender: user.uid,
+      createdAt: serverTimestamp(),
+    });
+
+    setText("");
   };
 
   if (!user) return null;
 
-  /* ================= UI ================= */
   return (
     <div className="h-screen bg-gray-100 flex flex-col max-w-md mx-auto">
 
@@ -151,16 +141,14 @@ export default function App() {
             <div
               key={r.id}
               onClick={() => setActiveRoom(r)}
-              className="bg-white rounded-xl p-4 mb-2 flex items-center shadow active:scale-95"
+              className="bg-white rounded-xl p-4 mb-2 flex items-center shadow"
             >
               <div className="w-12 h-12 rounded-full bg-blue-500 text-white flex items-center justify-center mr-3">
-                {r.name?.[0]?.toUpperCase()}
+                {r.name[0]}
               </div>
-              <div className="flex-1">
+              <div>
                 <div className="font-semibold">{r.name}</div>
-                <div className="text-xs text-gray-500">
-                  Tap to open
-                </div>
+                <div className="text-xs text-gray-500">Tap to open</div>
               </div>
             </div>
           ))}
@@ -185,9 +173,9 @@ export default function App() {
         </div>
       )}
 
-      {/* MESSAGE INPUT */}
+      {/* INPUT */}
       {activeRoom && (
-        <div className="bg-white p-2 flex items-center gap-2">
+        <div className="bg-white p-2 flex gap-2">
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
