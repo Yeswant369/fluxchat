@@ -3,93 +3,94 @@ import { auth, db } from "./firebase";
 import {
   collection,
   addDoc,
-  serverTimestamp,
+  onSnapshot,
   query,
   orderBy,
-  onSnapshot
+  serverTimestamp,
 } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
 
 function App() {
-  const [user, setUser] = useState(null);
-  const [message, setMessage] = useState("");
+  const [myUid, setMyUid] = useState(null);
+  const [friendUid, setFriendUid] = useState("");
+  const [roomId, setRoomId] = useState(null);
+  const [text, setText] = useState("");
   const [messages, setMessages] = useState([]);
 
-  // 🔐 CHANGE THIS LATER WITH FRIEND UID
-  const roomId = "LqWYxaN4jMUorQ90amP4Cz3dl893";
-
-  // Wait for auth to be ready
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      if (u) setUser(u);
+    const unsub = auth.onAuthStateChanged((user) => {
+      if (user) setMyUid(user.uid);
     });
-    return () => unsub();
+    return unsub;
   }, []);
 
-  // Listen for messages
-  useEffect(() => {
-    if (!user) return;
+  // Generate SAME room for both users
+  const startChat = () => {
+    if (!friendUid || !myUid) return;
+    const id = [myUid, friendUid].sort().join("_");
+    setRoomId(id);
+  };
 
+  // Listen to messages
+  useEffect(() => {
+    if (!roomId) return;
     const q = query(
       collection(db, "rooms", roomId, "messages"),
       orderBy("createdAt")
     );
-
-    const unsub = onSnapshot(q, (snapshot) => {
-      setMessages(snapshot.docs.map(doc => doc.data()));
+    return onSnapshot(q, (snap) => {
+      setMessages(snap.docs.map((d) => d.data()));
     });
-
-    return () => unsub();
-  }, [user]);
+  }, [roomId]);
 
   const sendMessage = async () => {
-    if (!message.trim()) return;
-
+    if (!text || !roomId) return;
     await addDoc(collection(db, "rooms", roomId, "messages"), {
-      text: message,
-      senderId: user.uid,
-      createdAt: serverTimestamp()
+      text,
+      sender: myUid,
+      createdAt: serverTimestamp(),
     });
-
-    setMessage("");
+    setText("");
   };
-
-  if (!user) return <p>Loading...</p>;
 
   return (
     <div style={{ padding: 20 }}>
-      <h2>🔐 Private Room</h2>
+      <h2>🔒 Private Room</h2>
 
-      {/* ✅ UID DISPLAY (THIS IS WHAT YOU ASKED) */}
-      <p style={{ color: "gray", fontSize: 14 }}>
-        Your UID: <b>{user.uid}</b>
-      </p>
+      {myUid && <p><b>Your UID:</b> {myUid}</p>}
 
-      <div
-        style={{
-          border: "1px solid #ccc",
-          height: 300,
-          overflowY: "auto",
-          padding: 10,
-          marginBottom: 10
-        }}
-      >
-        {messages.map((m, i) => (
-          <p key={i}>
-            <b>{m.senderId === user.uid ? "You" : "Friend"}:</b> {m.text}
-          </p>
-        ))}
-      </div>
+      {!roomId && (
+        <>
+          <input
+            placeholder="Paste friend's UID"
+            value={friendUid}
+            onChange={(e) => setFriendUid(e.target.value)}
+            style={{ width: "100%", marginBottom: 10 }}
+          />
+          <button onClick={startChat}>Start Chat</button>
+        </>
+      )}
 
-      <input
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        placeholder="Type message"
-        style={{ width: "70%" }}
-      />
-      <button onClick={sendMessage}>Send</button>
+      {roomId && (
+        <>
+          <div style={{ height: 300, border: "1px solid #ccc", marginTop: 10 }}>
+            {messages.map((m, i) => (
+              <p key={i}>
+                <b>{m.sender === myUid ? "You" : "Friend"}:</b> {m.text}
+              </p>
+            ))}
+          </div>
+
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Type message"
+          />
+          <button onClick={sendMessage}>Send</button>
+        </>
+      )}
     </div>
   );
 }
 
 export default App;
+
