@@ -30,25 +30,35 @@ export default function App() {
     });
   }, []);
 
-  /* ---------- ROOMS LIST ---------- */
+  /* ---------- USER ROOMS (SAFE) ---------- */
   useEffect(() => {
     if (!user) return;
-    return onSnapshot(collection(db, "rooms"), (snap) => {
-      setRooms(
-        snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((r) => r.members?.includes(user.uid))
+
+    const ref = collection(db, "users", user.uid, "rooms");
+
+    return onSnapshot(ref, async (snap) => {
+      const list = await Promise.all(
+        snap.docs.map(async (d) => {
+          const roomSnap = await getDoc(doc(db, "rooms", d.id));
+          return roomSnap.exists()
+            ? { id: d.id, ...roomSnap.data() }
+            : null;
+        })
       );
+
+      setRooms(list.filter(Boolean));
     });
   }, [user]);
 
   /* ---------- MESSAGES ---------- */
   useEffect(() => {
     if (!activeRoom) return;
+
     const q = query(
       collection(db, "rooms", activeRoom.id, "messages"),
       orderBy("createdAt")
     );
+
     return onSnapshot(q, (snap) => {
       setMessages(snap.docs.map((d) => d.data()));
     });
@@ -58,52 +68,69 @@ export default function App() {
   const createRoom = async () => {
     if (!roomName.trim()) return;
 
-    const roomId = crypto.randomUUID().slice(0, 8);
+    try {
+      const roomId = crypto.randomUUID().slice(0, 8);
 
-    await setDoc(doc(db, "rooms", roomId), {
-      name: roomName,
-      ownerId: user.uid,            // 🔴 REQUIRED
-      members: [user.uid],           // 🔴 REQUIRED
-      createdAt: serverTimestamp(),
-    });
+      await setDoc(doc(db, "rooms", roomId), {
+        name: roomName,
+        ownerId: user.uid,
+        members: [user.uid],
+        createdAt: serverTimestamp(),
+      });
 
-    setRoomName("");
+      // user room index
+      await setDoc(doc(db, "users", user.uid, "rooms", roomId), {
+        joinedAt: serverTimestamp(),
+      });
+
+      setRoomName("");
+    } catch (e) {
+      alert("Create failed: " + e.message);
+    }
   };
 
   /* ---------- JOIN ROOM ---------- */
   const joinRoom = async () => {
     if (!joinRoomId.trim()) return;
 
-    const ref = doc(db, "rooms", joinRoomId);
-    const snap = await getDoc(ref);
+    try {
+      const ref = doc(db, "rooms", joinRoomId);
+      const snap = await getDoc(ref);
 
-    if (!snap.exists()) {
-      alert("Room not found");
-      return;
-    }
+      if (!snap.exists()) {
+        alert("Room not found");
+        return;
+      }
 
-    const data = snap.data();
-
-    if (!data.members.includes(user.uid)) {
       await updateDoc(ref, {
-        members: arrayUnion(user.uid), // 🔴 CRITICAL FIX
+        members: arrayUnion(user.uid),
       });
-    }
 
-    setJoinRoomId("");
+      await setDoc(doc(db, "users", user.uid, "rooms", joinRoomId), {
+        joinedAt: serverTimestamp(),
+      });
+
+      setJoinRoomId("");
+    } catch (e) {
+      alert("Join failed: " + e.message);
+    }
   };
 
   /* ---------- SEND MESSAGE ---------- */
   const sendMessage = async () => {
     if (!text.trim() || !activeRoom) return;
 
-    await addDoc(collection(db, "rooms", activeRoom.id, "messages"), {
-      text,
-      sender: user.uid,
-      createdAt: serverTimestamp(),
-    });
+    try {
+      await addDoc(collection(db, "rooms", activeRoom.id, "messages"), {
+        text,
+        sender: user.uid,
+        createdAt: serverTimestamp(),
+      });
 
-    setText("");
+      setText("");
+    } catch (e) {
+      alert("Send failed: " + e.message);
+    }
   };
 
   if (!user) return null;
@@ -112,38 +139,34 @@ export default function App() {
     <div className="h-screen bg-gray-100 flex flex-col max-w-md mx-auto">
 
       {/* HEADER */}
-      <div className="bg-white p-4 shadow flex items-center justify-between">
+      <div className="bg-white p-4 shadow flex items-center">
         {activeRoom ? (
           <>
-            <button
-              onClick={() => setActiveRoom(null)}
-              className="text-blue-600 text-xl"
-            >
+            <button onClick={() => setActiveRoom(null)} className="mr-3 text-xl">
               ←
             </button>
             <div className="font-semibold">{activeRoom.name}</div>
-            <div />
           </>
         ) : (
           <>
             <div className="text-xl font-bold">FluxChat</div>
-            <div className="text-xs text-gray-500 truncate ml-2">
+            <div className="ml-2 text-xs text-gray-500 truncate">
               UID: {user.uid}
             </div>
           </>
         )}
       </div>
 
-      {/* CHAT LIST */}
+      {/* ROOMS */}
       {!activeRoom && (
         <div className="flex-1 overflow-y-auto p-2">
           {rooms.map((r) => (
             <div
               key={r.id}
               onClick={() => setActiveRoom(r)}
-              className="bg-white rounded-xl p-4 mb-2 flex items-center shadow"
+              className="bg-white p-4 mb-2 rounded-xl shadow flex items-center"
             >
-              <div className="w-12 h-12 rounded-full bg-blue-500 text-white flex items-center justify-center mr-3">
+              <div className="w-12 h-12 bg-blue-500 text-white rounded-full flex items-center justify-center mr-3">
                 {r.name[0]}
               </div>
               <div>
@@ -161,10 +184,10 @@ export default function App() {
           {messages.map((m, i) => (
             <div
               key={i}
-              className={`max-w-[75%] px-4 py-2 rounded-2xl text-sm ${
+              className={`px-4 py-2 rounded-2xl max-w-[75%] ${
                 m.sender === user.uid
                   ? "bg-blue-500 text-white ml-auto"
-                  : "bg-white text-black"
+                  : "bg-white"
               }`}
             >
               {m.text}
@@ -179,12 +202,12 @@ export default function App() {
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Message"
             className="flex-1 border rounded-full px-4 py-2"
+            placeholder="Message"
           />
           <button
             onClick={sendMessage}
-            className="bg-blue-500 text-white px-4 py-2 rounded-full"
+            className="bg-blue-500 text-white px-4 rounded-full"
           >
             Send
           </button>
