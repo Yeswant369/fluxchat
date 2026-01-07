@@ -9,125 +9,153 @@ import {
   serverTimestamp,
   doc,
   setDoc,
+  where,
 } from "firebase/firestore";
 
-function App() {
-  const [myUid, setMyUid] = useState(null);
-  const [friendUid, setFriendUid] = useState("");
-  const [roomId, setRoomId] = useState(null);
-  const [text, setText] = useState("");
+export default function App() {
+  const [uid, setUid] = useState(null);
+  const [rooms, setRooms] = useState([]);
+  const [activeRoom, setActiveRoom] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [text, setText] = useState("");
 
-  // Get logged-in UID
+  const [newRoomName, setNewRoomName] = useState("");
+  const [joinRoomId, setJoinRoomId] = useState("");
+
+  // 🔐 Auth
   useEffect(() => {
-    const unsub = auth.onAuthStateChanged((user) => {
-      if (user) setMyUid(user.uid);
-    });
-    return unsub;
+    return auth.onAuthStateChanged((u) => u && setUid(u.uid));
   }, []);
 
-  // ✅ CREATE ROOM (CRITICAL FIX)
-  const startChat = async () => {
-    if (!friendUid || !myUid) {
-      alert("UID missing");
-      return;
-    }
-
-    const id = [myUid, friendUid].sort().join("_");
-    const roomRef = doc(db, "rooms", id);
-
-    // 🔐 Create room with members (WhatsApp logic)
-    await setDoc(
-      roomRef,
-      {
-        owner: myUid,
-        members: [myUid, friendUid],
-        createdAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
-
-    setRoomId(id);
-  };
-
-  // 🔄 Listen to messages
+  // 📂 Load rooms
   useEffect(() => {
-    if (!roomId) return;
-
+    if (!uid) return;
     const q = query(
-      collection(db, "rooms", roomId, "messages"),
+      collection(db, "rooms"),
+      where("members", "array-contains", uid)
+    );
+    return onSnapshot(q, (snap) =>
+      setRooms(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    );
+  }, [uid]);
+
+  // 💬 Load messages
+  useEffect(() => {
+    if (!activeRoom) return;
+    const q = query(
+      collection(db, "rooms", activeRoom.id, "messages"),
       orderBy("createdAt")
     );
+    return onSnapshot(q, (snap) =>
+      setMessages(snap.docs.map((d) => d.data()))
+    );
+  }, [activeRoom]);
 
-    return onSnapshot(q, (snap) => {
-      setMessages(snap.docs.map((d) => d.data()));
-    });
-  }, [roomId]);
-
-  // ✉️ Send message
-  const sendMessage = async () => {
-    if (!text.trim() || !roomId) return;
-
-    await addDoc(collection(db, "rooms", roomId, "messages"), {
-      text,
-      sender: myUid,
+  // ➕ Create room
+  const createRoom = async () => {
+    if (!newRoomName) return;
+    const roomId = crypto.randomUUID().slice(0, 8);
+    await setDoc(doc(db, "rooms", roomId), {
+      name: newRoomName,
+      members: [uid],
       createdAt: serverTimestamp(),
     });
+    alert(`Room ID: ${roomId}`);
+    setNewRoomName("");
+  };
 
+  // 🔑 Join room
+  const joinRoom = async () => {
+    if (!joinRoomId) return;
+    await setDoc(
+      doc(db, "rooms", joinRoomId),
+      { members: [uid] },
+      { merge: true }
+    );
+    setJoinRoomId("");
+  };
+
+  // ✉️ Send
+  const sendMessage = async () => {
+    if (!text) return;
+    await addDoc(collection(db, "rooms", activeRoom.id, "messages"), {
+      text,
+      sender: uid,
+      createdAt: serverTimestamp(),
+    });
     setText("");
   };
 
-  return (
-    <div style={{ padding: 20 }}>
-      <h2>🔒 Private Room</h2>
+  /* ---------------- UI ---------------- */
 
-      {myUid && (
-        <p>
-          <b>Your UID:</b> {myUid}
-        </p>
-      )}
+  // 🟢 CHAT SCREEN
+  if (activeRoom) {
+    return (
+      <div className="chat-screen">
+        <div className="chat-header">
+          <button onClick={() => setActiveRoom(null)}>←</button>
+          <h3>{activeRoom.name}</h3>
+        </div>
 
-      {!roomId && (
-        <>
-          <input
-            placeholder="Paste friend's UID"
-            value={friendUid}
-            onChange={(e) => setFriendUid(e.target.value)}
-            style={{ width: "100%", marginBottom: 10 }}
-          />
-          <button onClick={startChat}>Start Chat</button>
-        </>
-      )}
+        <div className="messages">
+          {messages.map((m, i) => (
+            <div
+              key={i}
+              className={m.sender === uid ? "bubble me" : "bubble other"}
+            >
+              {m.text}
+            </div>
+          ))}
+        </div>
 
-      {roomId && (
-        <>
-          <div
-            style={{
-              height: 300,
-              border: "1px solid #ccc",
-              marginTop: 10,
-              padding: 10,
-              overflowY: "auto",
-            }}
-          >
-            {messages.map((m, i) => (
-              <p key={i}>
-                <b>{m.sender === myUid ? "You" : "Friend"}:</b> {m.text}
-              </p>
-            ))}
-          </div>
-
+        <div className="input-bar">
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Type message"
-            style={{ width: "80%", marginTop: 10 }}
           />
           <button onClick={sendMessage}>Send</button>
-        </>
-      )}
+        </div>
+      </div>
+    );
+  }
+
+  // 🟢 ROOMS LIST (DEFAULT)
+  return (
+    <div className="rooms-screen">
+      <div className="top-bar">
+        <h2>FluxChat</h2>
+        <button onClick={createRoom}>＋</button>
+      </div>
+
+      <input
+        placeholder="New room name"
+        value={newRoomName}
+        onChange={(e) => setNewRoomName(e.target.value)}
+      />
+
+      <input
+        placeholder="Join with Room ID"
+        value={joinRoomId}
+        onChange={(e) => setJoinRoomId(e.target.value)}
+      />
+      <button onClick={joinRoom}>Join</button>
+
+      <div className="room-list">
+        {rooms.map((r) => (
+          <div
+            key={r.id}
+            className="room-item"
+            onClick={() => setActiveRoom(r)}
+          >
+            <div className="avatar" />
+            <div>
+              <b>{r.name}</b>
+              <p>Tap to open</p>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
-
-export default App;
