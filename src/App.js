@@ -3,88 +3,91 @@ import { auth, db } from "./firebase";
 import {
   collection,
   addDoc,
+  serverTimestamp,
   query,
   orderBy,
-  onSnapshot,
-  serverTimestamp,
-  doc,
-  setDoc
+  onSnapshot
 } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 
 function App() {
+  const [user, setUser] = useState(null);
+  const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
-  const [text, setText] = useState("");
 
-  const user = auth.currentUser;
-  const roomId = user?.uid; // 🔐 private room per user
+  // 🔐 CHANGE THIS LATER WITH FRIEND UID
+  const roomId = "private-room";
 
+  // Wait for auth to be ready
   useEffect(() => {
-    if (!roomId) return;
+    const unsub = onAuthStateChanged(auth, (u) => {
+      if (u) setUser(u);
+    });
+    return () => unsub();
+  }, []);
 
-    // Ensure room exists
-    setDoc(
-      doc(db, "rooms", roomId),
-      {
-        owner: user.uid,
-        members: [user.uid],
-        createdAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
+  // Listen for messages
+  useEffect(() => {
+    if (!user) return;
 
     const q = query(
       collection(db, "rooms", roomId, "messages"),
       orderBy("createdAt")
     );
 
-    const unsub = onSnapshot(q, (snap) => {
-      setMessages(snap.docs.map((d) => d.data()));
+    const unsub = onSnapshot(q, (snapshot) => {
+      setMessages(snapshot.docs.map(doc => doc.data()));
     });
 
-    return unsub;
-  }, [roomId, user]);
+    return () => unsub();
+  }, [user]);
 
   const sendMessage = async () => {
-    if (!text.trim()) return;
+    if (!message.trim()) return;
 
     await addDoc(collection(db, "rooms", roomId, "messages"), {
-      text,
+      text: message,
       senderId: user.uid,
-      createdAt: serverTimestamp(),
+      createdAt: serverTimestamp()
     });
 
-    setText("");
+    setMessage("");
   };
 
+  if (!user) return <p>Loading...</p>;
+
   return (
-    <div style={{ maxWidth: 600, margin: "40px auto" }}>
-      <h2>🔒 Private Room</h2>
+    <div style={{ padding: 20 }}>
+      <h2>🔐 Private Room</h2>
+
+      {/* ✅ UID DISPLAY (THIS IS WHAT YOU ASKED) */}
+      <p style={{ color: "gray", fontSize: 14 }}>
+        Your UID: <b>{user.uid}</b>
+      </p>
 
       <div
         style={{
+          border: "1px solid #ccc",
           height: 300,
-          border: "1px solid #ddd",
-          padding: 10,
           overflowY: "auto",
-          marginBottom: 10,
+          padding: 10,
+          marginBottom: 10
         }}
       >
         {messages.map((m, i) => (
-          <div key={i}>
-            <b>{m.senderId === user.uid ? "You" : "Other"}:</b> {m.text}
-          </div>
+          <p key={i}>
+            <b>{m.senderId === user.uid ? "You" : "Friend"}:</b> {m.text}
+          </p>
         ))}
       </div>
 
-      <div style={{ display: "flex", gap: 10 }}>
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          style={{ flex: 1, padding: 8 }}
-          placeholder="Type a message..."
-        />
-        <button onClick={sendMessage}>Send</button>
-      </div>
+      <input
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        placeholder="Type message"
+        style={{ width: "70%" }}
+      />
+      <button onClick={sendMessage}>Send</button>
     </div>
   );
 }
