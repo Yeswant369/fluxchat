@@ -16,7 +16,7 @@ function App() {
   const [messages, setMessages] = useState([]);
 
   // 🔐 CHANGE THIS LATER WITH FRIEND UID
-  const roomId = "private-room";
+  const roomId = "LqWYxaN4jMUorQ90amP4Cz3dl893";
 
   // Wait for auth to be ready
   useEffect(() => {
