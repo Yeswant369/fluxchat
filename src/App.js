@@ -7,6 +7,8 @@ import {
   query,
   orderBy,
   serverTimestamp,
+  doc,
+  setDoc,
 } from "firebase/firestore";
 
 function App() {
@@ -16,6 +18,7 @@ function App() {
   const [text, setText] = useState("");
   const [messages, setMessages] = useState([]);
 
+  // Get logged-in UID
   useEffect(() => {
     const unsub = auth.onAuthStateChanged((user) => {
       if (user) setMyUid(user.uid);
@@ -23,32 +26,54 @@ function App() {
     return unsub;
   }, []);
 
-  // Generate SAME room for both users
-  const startChat = () => {
-    if (!friendUid || !myUid) return;
+  // ✅ CREATE ROOM (CRITICAL FIX)
+  const startChat = async () => {
+    if (!friendUid || !myUid) {
+      alert("UID missing");
+      return;
+    }
+
     const id = [myUid, friendUid].sort().join("_");
+    const roomRef = doc(db, "rooms", id);
+
+    // 🔐 Create room with members (WhatsApp logic)
+    await setDoc(
+      roomRef,
+      {
+        owner: myUid,
+        members: [myUid, friendUid],
+        createdAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
     setRoomId(id);
   };
 
-  // Listen to messages
+  // 🔄 Listen to messages
   useEffect(() => {
     if (!roomId) return;
+
     const q = query(
       collection(db, "rooms", roomId, "messages"),
       orderBy("createdAt")
     );
+
     return onSnapshot(q, (snap) => {
       setMessages(snap.docs.map((d) => d.data()));
     });
   }, [roomId]);
 
+  // ✉️ Send message
   const sendMessage = async () => {
-    if (!text || !roomId) return;
+    if (!text.trim() || !roomId) return;
+
     await addDoc(collection(db, "rooms", roomId, "messages"), {
       text,
       sender: myUid,
       createdAt: serverTimestamp(),
     });
+
     setText("");
   };
 
@@ -56,7 +81,11 @@ function App() {
     <div style={{ padding: 20 }}>
       <h2>🔒 Private Room</h2>
 
-      {myUid && <p><b>Your UID:</b> {myUid}</p>}
+      {myUid && (
+        <p>
+          <b>Your UID:</b> {myUid}
+        </p>
+      )}
 
       {!roomId && (
         <>
@@ -72,7 +101,15 @@ function App() {
 
       {roomId && (
         <>
-          <div style={{ height: 300, border: "1px solid #ccc", marginTop: 10 }}>
+          <div
+            style={{
+              height: 300,
+              border: "1px solid #ccc",
+              marginTop: 10,
+              padding: 10,
+              overflowY: "auto",
+            }}
+          >
             {messages.map((m, i) => (
               <p key={i}>
                 <b>{m.sender === myUid ? "You" : "Friend"}:</b> {m.text}
@@ -84,6 +121,7 @@ function App() {
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Type message"
+            style={{ width: "80%", marginTop: 10 }}
           />
           <button onClick={sendMessage}>Send</button>
         </>
@@ -93,4 +131,3 @@ function App() {
 }
 
 export default App;
-
