@@ -2,17 +2,19 @@
 <html lang="en">
 <head>
   <link rel="manifest" href="/manifest.json">
-
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>Signal Chat UI</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Signal Chat UI</title>
   <meta name="theme-color" content="#2C6BED">
 
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-<script src="https://cdn.tailwindcss.com"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- ✅ Firebase Messaging -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
 
 <style>
+/* 🔒 ORIGINAL UI — UNCHANGED */
 :root {
   --signal-blue:#2C6BED;
   --ios-curve:cubic-bezier(0.4,0,0.2,1);
@@ -57,49 +59,48 @@ body{
 
 <!-- SIDEBAR -->
 <aside id="sidebar" class="flex flex-col">
-<div class="p-6 flex justify-between items-center">
-<h1 class="font-bold text-2xl">Chats</h1>
-</div>
+  <div class="p-6 flex justify-between items-center">
+    <h1 class="font-bold text-2xl">Chats</h1>
+  </div>
 
-<div id="contact-list" class="flex-1 px-3">
-<div id="contact-General"
- class="chat-list-item p-4 rounded-2xl flex items-center gap-4 cursor-pointer active-chat"
- onclick="switchChat()">
-<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=General"
- class="w-14 h-14 rounded-full bg-blue-100">
-<div class="flex-1">
-<div class="flex justify-between">
-<span class="font-bold">General</span>
-<span class="text-xs text-gray-400">Live</span>
-</div>
-<p class="text-sm text-gray-500">Welcome to the common chat room.</p>
-</div>
-</div>
-</div>
+  <div id="contact-list" class="flex-1 px-3">
+    <div class="chat-list-item p-4 rounded-2xl flex items-center gap-4 cursor-pointer active-chat"
+         onclick="switchChat()">
+      <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=General"
+           class="w-14 h-14 rounded-full bg-blue-100">
+      <div class="flex-1">
+        <div class="flex justify-between">
+          <span class="font-bold">General</span>
+          <span class="text-xs text-gray-400">Live</span>
+        </div>
+        <p class="text-sm text-gray-500">Welcome to the common chat room.</p>
+      </div>
+    </div>
+  </div>
 </aside>
 
 <!-- CHAT -->
 <main id="main-chat" class="flex flex-col">
 <header class="h-20 flex items-center px-6 border-b">
-<button onclick="goBack()" class="md:hidden mr-3 text-3xl font-bold flex items-center justify-center w-10 h-10">&larr;</button>
-<h2 class="font-bold text-lg">General</h2>
+  <button onclick="goBack()" class="md:hidden mr-3 text-3xl font-bold w-10">&larr;</button>
+  <h2 class="font-bold text-lg">General</h2>
 </header>
 
 <div id="messages-container"
- class="flex-1 overflow-y-auto px-6 py-6 space-y-4 scrollbar-hide bg-white">
+     class="flex-1 overflow-y-auto px-6 py-6 space-y-4 scrollbar-hide bg-white">
 </div>
 
 <footer class="p-4 border-t">
-<div class="flex gap-3">
-<textarea id="message-input"
- placeholder="Signal Message"
- rows="1"
- class="flex-1 bg-gray-50 rounded-2xl px-4 py-2 resize-none"></textarea>
-<button id="send-btn"
- class="btn-touch w-12 h-12 bg-signal-blue text-white rounded-full flex items-center justify-center">
-➤
-</button>
-</div>
+  <div class="flex gap-3">
+    <textarea id="message-input"
+      placeholder="Signal Message"
+      rows="1"
+      class="flex-1 bg-gray-50 rounded-2xl px-4 py-2 resize-none"></textarea>
+    <button id="send-btn"
+      class="btn-touch w-12 h-12 bg-signal-blue text-white rounded-full flex items-center justify-center">
+      ➤
+    </button>
+  </div>
 </footer>
 </main>
 </div>
@@ -109,22 +110,38 @@ body{
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <script>
-/* 🔐 FIREBASE CONFIG */
+/* 🔐 FIREBASE INIT */
 firebase.initializeApp({
   apiKey: "AIzaSyCY2qB4sbPs_7BIz355cQiQkDDqK-S_z4I",
-  projectId: "flux-chat-b9cb2"
+  projectId: "flux-chat-b9cb2",
+  messagingSenderId: "887456585588",
+  appId: "1:887456585588:web:7a0689fb9feacc9dcebe21"
 });
+
 const db = firebase.firestore();
+const messaging = firebase.messaging();
 
-/* 🧠 LOCAL USER ID (NO AUTH) */
-const MY_ID = localStorage.getItem("signal_id")
-  || (() => {
-    const id = "user_" + Math.random().toString(36).slice(2, 9);
-    localStorage.setItem("signal_id", id);
-    return id;
-  })();
+/* 🔑 VAPID KEY (CLIENT ONLY) */
+messaging.getToken({
+  vapidKey: "BIU-xNGUR896ZQg697fZCJs4DYgiO3IwNFLosDymP9JhZt_mi3bs6vrv7T9ZER8BwkePLOrzG08pnri26xZBgUY"
+}).then(token => {
+  if (token) console.log("FCM Token:", token);
+});
 
-/* UI */
+/* 👤 TEMP USER ID */
+const MY_ID = localStorage.signal_id || (() => {
+  const id = "user_" + Math.random().toString(36).slice(2,9);
+  localStorage.signal_id = id;
+  return id;
+})();
+
+/* 👤 TEMP NAME PROMPT (NO UI CHANGE) */
+if (!localStorage.chat_name) {
+  const name = prompt("Enter your display name:");
+  localStorage.chat_name = name || "Anonymous";
+}
+const MY_NAME = localStorage.chat_name;
+
 const messagesContainer = document.getElementById("messages-container");
 const messageInput = document.getElementById("message-input");
 const sendBtn = document.getElementById("send-btn");
@@ -133,50 +150,48 @@ const CHAT_ID = "general";
 function switchChat(){ document.body.className = "view-chat"; }
 function goBack(){ document.body.className = "view-list"; }
 
-/* 🔥 REALTIME LISTENER */
-db.collection("public")
-  .doc(CHAT_ID)
-  .collection("messages")
-  .orderBy("createdAt")
-  .onSnapshot(snap => {
-    messagesContainer.innerHTML = `
-      <div class="flex justify-center mb-4">
-        <span class="text-xs text-gray-400">SIGNAL MESSAGE</span>
-      </div>
-    `;
-    snap.forEach(doc => {
-      const m = doc.data();
-      const isMe = m.senderId === MY_ID;
+/* 🔥 LISTENER */
+db.collection("public").doc(CHAT_ID).collection("messages")
+.orderBy("createdAt")
+.onSnapshot(snap => {
+  messagesContainer.innerHTML = `
+    <div class="flex justify-center mb-4">
+      <span class="text-xs text-gray-400">SIGNAL MESSAGE</span>
+    </div>
+  `;
+  snap.forEach(doc => {
+    const m = doc.data();
+    const isMe = m.senderId === MY_ID;
 
-      messagesContainer.insertAdjacentHTML("beforeend", `
-        <div class="flex ${isMe ? "justify-end" : "justify-start"} message-appear">
-          <div class="${
-            isMe
-              ? "bg-signal-blue text-white rounded-br-none"
-              : "bg-gray-100 text-gray-800 rounded-bl-none"
-          } px-4 py-3 rounded-[1.25rem] max-w-[80%]">
-            ${m.text}
-          </div>
+    messagesContainer.insertAdjacentHTML("beforeend", `
+      <div class="flex flex-col ${isMe ? "items-end" : "items-start"} message-appear">
+        ${!isMe ? `<div class="text-xs text-gray-500 mb-1">${m.name}</div>` : ""}
+        <div class="${
+          isMe
+            ? "bg-signal-blue text-white rounded-br-none"
+            : "bg-gray-100 text-gray-800 rounded-bl-none"
+        } px-4 py-3 rounded-[1.25rem] max-w-[80%]">
+          ${m.text}
         </div>
-      `);
-    });
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      </div>
+    `);
   });
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+});
 
-/* ✉️ SEND MESSAGE */
+/* ✉️ SEND */
 sendBtn.onclick = async () => {
   const text = messageInput.value.trim();
   if (!text) return;
 
-  await db.collection("public").doc(CHAT_ID)
-    .collection("messages")
-    .add({
-      text,
-      senderId: MY_ID,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-
   messageInput.value = "";
+
+  await db.collection("public").doc(CHAT_ID).collection("messages").add({
+    text,
+    senderId: MY_ID,
+    name: MY_NAME,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
 };
 
 /* AUTO RESIZE */
@@ -184,9 +199,7 @@ messageInput.addEventListener("input", () => {
   messageInput.style.height = "auto";
   messageInput.style.height = messageInput.scrollHeight + "px";
 });
-
-/* INIT */
-//switchChat();
 </script>
+
 </body>
 </html>
