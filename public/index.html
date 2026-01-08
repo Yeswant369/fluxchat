@@ -1,28 +1,31 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <link rel="manifest" href="/manifest.json">
+
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>Signal Chat UI</title>
-<meta name="theme-color" content="#2C6BED">
-<link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#2C6BED">
+
+
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
-:root{--signal-blue:#2C6BED;--ios-curve:cubic-bezier(0.4,0,0.2,1)}
-html,body{height:100dvh;margin:0;overflow:hidden}
+:root {
+  --signal-blue:#2C6BED;
+  --ios-curve:cubic-bezier(0.4,0,0.2,1);
+}
 body{
   font-family:'Inter',sans-serif;
-  background:#000;
+  background:#000;height:100dvh;margin:0;overflow:hidden;
   display:flex;align-items:center;justify-content:center;
 }
-#main-app{
-  width:100%;height:100%;max-width:1280px;
-  background:#fff;display:flex;overflow:hidden;
-  border-radius:1.25rem;border:1px solid #e5e7eb;
-}
-#sidebar,#main-chat{height:100%;transition:.45s var(--ios-curve),opacity .35s}
+.bg-signal-blue{background-color:var(--signal-blue);}
+.scrollbar-hide::-webkit-scrollbar{display:none;}
+#main-app{display:flex;width:100%;height:100%;background:#fff;overflow:hidden;}
+#sidebar,#main-chat{height:100%;transition:transform .5s var(--ios-curve),opacity .4s ease;}
 @media(max-width:767px){
   #sidebar{width:100%;position:absolute;z-index:10}
   #main-chat{width:100%;position:absolute;transform:translateX(100%);z-index:20}
@@ -31,170 +34,159 @@ body{
   .view-chat #main-chat{transform:translateX(0)}
 }
 @media(min-width:768px){
+  #main-app{height:95dvh;max-width:1280px;border-radius:1.25rem;border:1px solid #e5e7eb}
   #sidebar{width:360px;border-right:1px solid #f3f4f6}
   #main-chat{flex:1;transform:none!important}
 }
-#main-chat{flex-direction:column;display:flex;flex:1}
-#messages{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:12px}
-.bubble{max-width:78%;padding:12px 16px;border-radius:18px;font-size:16px}
-.bubble.me{background:var(--signal-blue);color:#fff;align-self:flex-end;border-bottom-right-radius:6px}
-.bubble.other{background:#f3f4f6;color:#111;align-self:flex-start;border-bottom-left-radius:6px}
-.meta{font-size:12px;color:#6b7280;margin-bottom:4px;align-self:flex-start}
-footer{padding:14px;border-top:1px solid #eee;background:#fff;display:flex;gap:12px;flex-shrink:0}
-textarea{flex:1;resize:none;border:none;background:#f7fafc;border-radius:24px;padding:12px 16px;font-size:16px;outline:none}
-.send-btn{width:48px;height:48px;border-radius:999px;background:var(--signal-blue);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-#typing-indicator{padding:0 24px 8px;display:none}
-.typing-bubble{background:#f3f4f6;border-radius:18px;padding:8px 12px;display:inline-flex}
-.dots{display:flex;gap:6px}
-.dot{width:8px;height:8px;background:#9ca3af;border-radius:50%;animation:bounce 1s infinite}
-.dot:nth-child(2){animation-delay:.12s}
-.dot:nth-child(3){animation-delay:.24s}
-@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-#onboarding{position:fixed;inset:0;z-index:999;background:#fff;display:flex;align-items:center;justify-content:center}
-.form{background:#fff;padding:24px;border-radius:20px;width:100%;max-width:360px}
-.scrollbar-hide::-webkit-scrollbar{display:none}
+.btn-touch{transition:.15s ease}
+.btn-touch:active{transform:scale(.92);opacity:.7}
+.chat-list-item{transition:.2s ease}
+.chat-list-item:active{transform:scale(.98);background:#f0f2f5}
+.active-chat{background:#e8effd!important}
+.message-appear{animation:popIn .3s cubic-bezier(.175,.885,.32,1.2)}
+@keyframes popIn{
+  from{opacity:0;transform:scale(.9) translateY(10px)}
+  to{opacity:1;transform:scale(1) translateY(0)}
+}
 </style>
 </head>
 
 <body class="view-list">
 
-<!-- ONBOARDING -->
-<div id="onboarding">
-  <form class="form" id="profileForm">
-    <h2 class="text-xl font-bold mb-3">Your name</h2>
-    <input id="nameInput" required class="w-full border px-3 py-2 rounded mb-4">
-    <button class="w-full bg-indigo-600 text-white py-2 rounded">Continue</button>
-  </form>
+<div id="main-app">
+
+<!-- SIDEBAR -->
+<aside id="sidebar" class="flex flex-col">
+<div class="p-6 flex justify-between items-center">
+<h1 class="font-bold text-2xl">Chats</h1>
 </div>
 
-<div id="main-app">
-<!-- SIDEBAR -->
-<aside id="sidebar">
-  <div class="p-6 text-2xl font-bold">Chats</div>
-  <div class="px-3">
-    <div onclick="switchChat()" class="p-4 rounded-xl bg-blue-50 flex gap-4 items-center cursor-pointer">
-      <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=General" class="w-12 h-12 rounded-full bg-blue-100">
-      <div>
-        <div class="font-bold">General</div>
-        <div class="text-sm text-gray-500">Public chat</div>
-      </div>
-    </div>
-  </div>
+<div id="contact-list" class="flex-1 px-3">
+<div id="contact-General"
+ class="chat-list-item p-4 rounded-2xl flex items-center gap-4 cursor-pointer active-chat"
+ onclick="switchChat()">
+<img src="https://api.dicebear.com/7.x/avataaars/svg?seed=General"
+ class="w-14 h-14 rounded-full bg-blue-100">
+<div class="flex-1">
+<div class="flex justify-between">
+<span class="font-bold">General</span>
+<span class="text-xs text-gray-400">Live</span>
+</div>
+<p class="text-sm text-gray-500">Welcome to the common chat room.</p>
+</div>
+</div>
+</div>
 </aside>
 
 <!-- CHAT -->
-<main id="main-chat">
-<header class="h-20 flex items-center px-6 border-b flex-shrink-0">
-  <button onclick="goBack()" class="md:hidden mr-3 text-2xl">←</button>
-  <h2 class="font-bold text-lg">General</h2>
+<main id="main-chat" class="flex flex-col">
+<header class="h-20 flex items-center px-6 border-b">
+<button onclick="goBack()" class="md:hidden mr-3 text-3xl font-bold flex items-center justify-center w-10 h-10">&larr;</button>
+<h2 class="font-bold text-lg">General</h2>
 </header>
 
-<div id="messages" class="scrollbar-hide"></div>
-
-<div id="typing-indicator">
-  <div class="text-xs text-gray-500 mb-1" id="typing-name"></div>
-  <div class="typing-bubble">
-    <div class="dots">
-      <div class="dot"></div><div class="dot"></div><div class="dot"></div>
-    </div>
-  </div>
+<div id="messages-container"
+ class="flex-1 overflow-y-auto px-6 py-6 space-y-4 scrollbar-hide bg-white">
 </div>
 
-<footer>
-  <textarea id="input" rows="1" placeholder="Signal Message"></textarea>
-  <button id="send" class="send-btn">➤</button>
+<footer class="p-4 border-t">
+<div class="flex gap-3">
+<textarea id="message-input"
+ placeholder="Signal Message"
+ rows="1"
+ class="flex-1 bg-gray-50 rounded-2xl px-4 py-2 resize-none"></textarea>
+<button id="send-btn"
+ class="btn-touch w-12 h-12 bg-signal-blue text-white rounded-full flex items-center justify-center">
+➤
+</button>
+</div>
 </footer>
 </main>
 </div>
 
+<!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
 <script>
+/* 🔐 FIREBASE CONFIG */
 firebase.initializeApp({
-  apiKey:"AIzaSyCY2qB4sbPs_7BIz355cQiQkDDqK-S_z4I",
-  projectId:"flux-chat-b9cb2"
+  apiKey: "AIzaSyCY2qB4sbPs_7BIz355cQiQkDDqK-S_z4I",
+  projectId: "flux-chat-b9cb2"
 });
-const db=firebase.firestore();
-const CHAT="general";
+const db = firebase.firestore();
 
-const uid=localStorage.uid||(()=>{const x="u_"+Math.random().toString(36).slice(2,9);localStorage.uid=x;return x})();
-const myName=()=>localStorage.name||"Anonymous";
+/* 🧠 LOCAL USER ID (NO AUTH) */
+const MY_ID = localStorage.getItem("signal_id")
+  || (() => {
+    const id = "user_" + Math.random().toString(36).slice(2, 9);
+    localStorage.setItem("signal_id", id);
+    return id;
+  })();
 
-const messages=document.getElementById("messages");
-const input=document.getElementById("input");
-const send=document.getElementById("send");
-const typingRef=db.collection("public").doc(CHAT).collection("typing");
+/* UI */
+const messagesContainer = document.getElementById("messages-container");
+const messageInput = document.getElementById("message-input");
+const sendBtn = document.getElementById("send-btn");
+const CHAT_ID = "general";
 
-/* onboarding */
-if(localStorage.name) document.getElementById("onboarding").remove();
-document.getElementById("profileForm").onsubmit=e=>{
-  e.preventDefault();
-  localStorage.name=document.getElementById("nameInput").value.trim();
-  document.getElementById("onboarding").remove();
-};
+function switchChat(){ document.body.className = "view-chat"; }
+function goBack(){ document.body.className = "view-list"; }
 
-/* typing */
-let t;
-input.oninput=()=>{
-  typingRef.doc(uid).set({name:myName(),typing:true},{merge:true}).catch(console.log);
-  clearTimeout(t);
-  t=setTimeout(()=>typingRef.doc(uid).set({typing:false},{merge:true}).catch(console.log),1000);
-};
+/* 🔥 REALTIME LISTENER */
+db.collection("public")
+  .doc(CHAT_ID)
+  .collection("messages")
+  .orderBy("createdAt")
+  .onSnapshot(snap => {
+    messagesContainer.innerHTML = `
+      <div class="flex justify-center mb-4">
+        <span class="text-xs text-gray-400">SIGNAL MESSAGE</span>
+      </div>
+    `;
+    snap.forEach(doc => {
+      const m = doc.data();
+      const isMe = m.senderId === MY_ID;
 
-input.onkeydown=e=>{
-  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send.onclick();}
-};
-
-typingRef.onSnapshot(s=>{
-  let show=false,n="";
-  s.forEach(d=>{
-    if(d.id!==uid && d.data().typing){
-      show=true;n=d.data().name;
-    }
+      messagesContainer.insertAdjacentHTML("beforeend", `
+        <div class="flex ${isMe ? "justify-end" : "justify-start"} message-appear">
+          <div class="${
+            isMe
+              ? "bg-signal-blue text-white rounded-br-none"
+              : "bg-gray-100 text-gray-800 rounded-bl-none"
+          } px-4 py-3 rounded-[1.25rem] max-w-[80%]">
+            ${m.text}
+          </div>
+        </div>
+      `);
+    });
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
   });
-  document.getElementById("typing-name").textContent=n;
-  document.getElementById("typing-indicator").style.display=show?"block":"none";
-});
 
-/* send */
-send.onclick=async()=>{
-  const text=input.value.trim();
-  if(!text)return;
-  input.value="";
-  await db.collection("public").doc(CHAT).collection("messages").add({
-    text,senderId:uid,name:myName(),time:Date.now()
-  });
-  typingRef.doc(uid).set({typing:false},{merge:true});
+/* ✉️ SEND MESSAGE */
+sendBtn.onclick = async () => {
+  const text = messageInput.value.trim();
+  if (!text) return;
+
+  await db.collection("public").doc(CHAT_ID)
+    .collection("messages")
+    .add({
+      text,
+      senderId: MY_ID,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+  messageInput.value = "";
 };
 
-/* messages */
-db.collection("public").doc(CHAT).collection("messages")
-.orderBy("time")
-.onSnapshot(s=>{
-  messages.innerHTML="";
-  s.forEach(d=>{
-    const m=d.data();
-    if(m.senderId!==uid){
-      const meta=document.createElement("div");
-      meta.className="meta";
-      meta.textContent=m.name;
-      messages.appendChild(meta);
-    }
-    const b=document.createElement("div");
-    b.className="bubble "+(m.senderId===uid?"me":"other");
-    b.textContent=m.text;
-    messages.appendChild(b);
-  });
-  messages.scrollTop=messages.scrollHeight;
+/* AUTO RESIZE */
+messageInput.addEventListener("input", () => {
+  messageInput.style.height = "auto";
+  messageInput.style.height = messageInput.scrollHeight + "px";
 });
 
-/* navigation */
-function switchChat(){document.body.className="view-chat"}
-function goBack(){document.body.className="view-list"}
-
-/* cleanup */
-window.onbeforeunload=()=>typingRef.doc(uid).delete().catch(()=>0);
+/* INIT */
+//switchChat();
 </script>
 </body>
 </html>
