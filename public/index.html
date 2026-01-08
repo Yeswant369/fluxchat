@@ -1,243 +1,422 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<link rel="manifest" href="/manifest.json">
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>Signal Chat UI</title>
-<meta name="theme-color" content="#2C6BED">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Signal Chat UI</title>
+  <meta name="theme-color" content="#2C6BED">
+  <link rel="manifest" href="/manifest.json">
 
-<script src="https://cdn.tailwindcss.com"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+  <!-- Tailwind CDN (keeps your existing look) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
 
-<style>
-/* ================= SIGNAL UI ================= */
-:root{
-  --signal-blue:#2C6BED;
-  --ios-curve:cubic-bezier(0.4,0,0.2,1);
-}
-body{
-  font-family:'Inter',sans-serif;
-  background:#000;height:100dvh;margin:0;overflow:hidden;
-  display:flex;align-items:center;justify-content:center;
-}
-.bg-signal-blue{background-color:var(--signal-blue);}
-.scrollbar-hide::-webkit-scrollbar{display:none;}
+  <style>
+  /* ---------------- BASE / SIGNAL UI (kept & tuned) ---------------- */
+  :root { --signal-blue:#2C6BED; --ios-curve:cubic-bezier(0.4,0,0.2,1); }
+  html,body { height:100%; }
+  body{
+    font-family:'Inter',sans-serif;
+    background:#000;height:100dvh;margin:0;overflow:hidden;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .bg-signal-blue{background-color:var(--signal-blue);}
+  .scrollbar-hide::-webkit-scrollbar{display:none;}
+  #main-app{display:flex;width:100%;height:100%;background:#fff;overflow:hidden;}
+  #sidebar,#main-chat{height:100%;transition:transform .45s var(--ios-curve),opacity .35s ease;}
+  @media(max-width:767px){
+    #sidebar{width:100%;position:absolute;z-index:10}
+    #main-chat{width:100%;position:absolute;transform:translateX(100%);z-index:20}
+    .view-list #sidebar{transform:translateX(0)}
+    .view-chat #sidebar{transform:translateX(-25%);opacity:.9}
+    .view-chat #main-chat{transform:translateX(0)}
+  }
+  @media(min-width:768px){
+    #main-app{height:95dvh;max-width:1280px;border-radius:1.25rem;border:1px solid #e5e7eb}
+    #sidebar{width:360px;border-right:1px solid #f3f4f6}
+    #main-chat{flex:1;transform:none!important}
+  }
+  .btn-touch{transition:.15s ease}
+  .btn-touch:active{transform:scale(.92);opacity:.7}
+  .chat-list-item{transition:.2s ease}
+  .chat-list-item:active{transform:scale(.98);background:#f0f2f5}
+  .active-chat{background:#e8effd!important}
+  .message-appear{animation:popIn .3s cubic-bezier(.175,.885,.32,1.2)}
+  @keyframes popIn{
+    from{opacity:0;transform:scale(.9) translateY(10px)}
+    to{opacity:1;transform:scale(1) translateY(0)}
+  }
 
-#main-app{display:flex;width:100%;height:100%;background:#fff;overflow:hidden;}
-#sidebar,#main-chat{height:100%;transition:transform .5s var(--ios-curve),opacity .4s ease;}
+  /* ---------------- ONBOARDING (name + gender overlay) ---------------- */
+  #onboarding-overlay{
+    position:fixed;inset:0;z-index:9999;font-family:'Plus Jakarta Sans',sans-serif;
+    background:linear-gradient(135deg,#f0f4ff,#e0eaff);
+    display:flex;align-items:center;justify-content:center;padding:24px;
+  }
+  .form-card{
+    background:rgba(255,255,255,.95);backdrop-filter:blur(10px);border-radius:1.5rem;padding:28px;max-width:420px;width:100%;
+    box-shadow:0 20px 40px rgba(0,0,0,.06)
+  }
+  .squishy-element{transition:.35s cubic-bezier(.175,.885,.32,1.275)}
+  .blob{position:absolute;filter:blur(50px);border-radius:50%;opacity:.5}
+  .gender-option input:checked + label{background:#4f46e5;color:#fff;transform:scale(1.03)}
+  button:disabled{opacity:.6;cursor:not-allowed}
 
-@media(max-width:767px){
-  #sidebar{width:100%;position:absolute;z-index:10}
-  #main-chat{width:100%;position:absolute;transform:translateX(100%);z-index:20}
-  .view-list #sidebar{transform:translateX(0)}
-  .view-chat #sidebar{transform:translateX(-25%);opacity:.9}
-  .view-chat #main-chat{transform:translateX(0)}
-}
-@media(min-width:768px){
-  #main-app{height:95dvh;max-width:1280px;border-radius:1.25rem;border:1px solid #e5e7eb}
-  #sidebar{width:360px;border-right:1px solid #f3f4f6}
-  #main-chat{flex:1;transform:none!important}
-}
+  /* ---------------- MESSAGES & INPUT ---------------- */
+  #messages-container{flex:1;overflow-y:auto;padding:28px;display:flex;flex-direction:column;gap:12px}
+  .bubble { max-width:78%; padding:12px 16px; border-radius:18px; font-size:16px; line-height:1.25; word-break:break-word; }
+  .bubble.me{ background:var(--signal-blue); color:white; border-bottom-right-radius:6px; border-bottom-left-radius:18px; border-top-right-radius:18px; }
+  .bubble.other{ background:#f3f4f6; color:#111827; border-bottom-left-radius:6px; border-bottom-right-radius:18px; border-top-left-radius:18px; }
+  .meta-name { font-size:12px; color:#6b7280; margin-bottom:6px; text-transform:capitalize; }
 
-.message-appear{animation:popIn .25s cubic-bezier(.175,.885,.32,1.2)}
-@keyframes popIn{
-  from{opacity:0;transform:translateY(6px) scale(.96)}
-  to{opacity:1;transform:none}
-}
+  footer { padding:14px 18px; border-top:1px solid #f3f3f3; background:white; display:flex; align-items:center; gap:12px; }
+  .input-area { flex:1; background:#f7fafc; border-radius:24px; padding:12px 16px; display:flex; align-items:center; gap:8px; }
+  textarea#message-input { width:100%; min-height:44px; max-height:140px; resize:none; border:none; background:transparent; outline:none; font-size:16px; line-height:1.25; }
+  .send-btn { width:48px; height:48px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; color:white; background:var(--signal-blue); }
 
-/* ================= TYPING DOTS ================= */
-.dot{
-  width:6px;height:6px;margin:0 2px;
-  background:#9ca3af;border-radius:50%;
-  animation:bounce 1.4s infinite ease-in-out both;
-}
-.dot:nth-child(1){animation-delay:-.32s}
-.dot:nth-child(2){animation-delay:-.16s}
-@keyframes bounce{
-  0%,80%,100%{transform:scale(0)}
-  40%{transform:scale(1)}
-}
+  /* ---------------- TYPING INDICATOR - iOS style ---------------- */
+  .typing-wrap { display:inline-flex; align-items:center; gap:8px; margin-top:2px; }
+  .typing-bubble {
+    background:#f3f4f6;
+    border-radius:18px;
+    padding:8px 12px;
+    display:inline-flex;
+    align-items:center;
+    box-shadow:0 4px 8px rgba(0,0,0,.03);
+  }
+  .dots { display:flex; gap:6px; align-items:center; justify-content:center; width:38px; }
+  .dot {
+    width:10px; height:10px; background:#9ca3af; border-radius:999px; transform-origin:center;
+    animation:dance 1s infinite ease-in-out;
+  }
+  .dot:nth-child(1){ animation-delay:0s; }
+  .dot:nth-child(2){ animation-delay:.12s; background:#6b7280; }
+  .dot:nth-child(3){ animation-delay:.24s; }
+  @keyframes dance {
+    0% { transform:translateY(0) scale(1); opacity:1; }
+    30% { transform:translateY(-6px) scale(.95); opacity:.9; }
+    60% { transform:translateY(0) scale(1); opacity:1; }
+    100% { transform:translateY(0) scale(1); opacity:1; }
+  }
 
-/* ================= ONBOARDING ================= */
-#onboarding{
-  position:fixed;inset:0;z-index:9999;
-  font-family:'Plus Jakarta Sans',sans-serif;
-  background:linear-gradient(135deg,#f0f4ff,#e0eaff);
-  display:flex;align-items:center;justify-content:center;
-}
-.form-card{
-  background:rgba(255,255,255,.85);
-  backdrop-filter:blur(20px);
-  border-radius:2.5rem;
-  padding:2.5rem;
-}
-</style>
+  /* small screen tweaks */
+  @media (max-width:420px) {
+    .bubble { font-size:15px; }
+    .meta-name { font-size:11px; }
+  }
+  </style>
 </head>
 
 <body class="view-list">
+  <!-- ========== ONBOARDING OVERLAY ========== -->
+  <div id="onboarding-overlay" aria-hidden="false">
+    <div class="blob w-96 h-96 bg-blue-300 -top-20 -left-20" style="position:absolute;left:-120px;top:-80px;"></div>
+    <div class="blob w-80 h-80 bg-indigo-300 -bottom-20 -right-20" style="position:absolute;right:-100px;bottom:-80px;"></div>
 
-<!-- ================= ONBOARDING ================= -->
-<div id="onboarding">
-  <div class="form-card w-full max-w-md text-center">
-    <h1 class="text-3xl font-extrabold mb-2">Welcome</h1>
-    <p class="text-gray-500 mb-6">Enter your name</p>
-    <form id="profileForm">
-      <input id="nameInput" required
-        class="w-full px-5 py-4 rounded-2xl border mb-6"
-        placeholder="Your name" />
-      <button class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black">
-        Continue
-      </button>
-    </form>
-  </div>
-</div>
+    <div class="form-card">
+      <h1 class="text-3xl font-extrabold text-center mb-2">Welcome</h1>
+      <p class="text-gray-500 text-center mb-6">What's your display name for chats?</p>
 
-<!-- ================= APP ================= -->
-<div id="main-app">
+      <form id="profileForm" class="space-y-5">
+        <input id="name-input" placeholder="Type your name (displayed above messages)" required
+               class="w-full px-4 py-3 rounded-xl border border-gray-100 outline-none text-gray-800" />
 
-<!-- SIDEBAR -->
-<aside id="sidebar" class="flex flex-col">
-  <div class="p-6 font-bold text-2xl">Chats</div>
-  <div class="px-3">
-    <div class="p-4 rounded-2xl flex gap-4 bg-blue-50 cursor-pointer"
-      onclick="switchChat()">
-      <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=General"
-        class="w-14 h-14 rounded-full bg-blue-100">
-      <div>
-        <div class="font-bold">General</div>
-        <div class="text-sm text-gray-500">Public chat</div>
-      </div>
+        <div class="grid grid-cols-3 gap-3">
+          <div class="gender-option">
+            <input type="radio" name="gender" value="male" id="male" hidden>
+            <label for="male" class="squishy-element p-3 bg-gray-50 rounded-2xl flex flex-col items-center justify-center">♂️<span class="text-xs font-bold">Male</span></label>
+          </div>
+          <div class="gender-option">
+            <input type="radio" name="gender" value="female" id="female" hidden>
+            <label for="female" class="squishy-element p-3 bg-gray-50 rounded-2xl flex flex-col items-center justify-center">♀️<span class="text-xs font-bold">Female</span></label>
+          </div>
+          <div class="gender-option">
+            <input type="radio" name="gender" value="other" id="other" hidden>
+            <label for="other" class="squishy-element p-3 bg-gray-50 rounded-2xl flex flex-col items-center justify-center">✨<span class="text-xs font-bold">Other</span></label>
+          </div>
+        </div>
+
+        <button id="continue-btn" class="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold">Continue</button>
+      </form>
     </div>
   </div>
-</aside>
 
-<!-- CHAT -->
-<main id="main-chat" class="flex flex-col">
-<header class="h-20 flex items-center px-6 border-b">
-  <button onclick="goBack()" class="md:hidden mr-3 text-3xl">&larr;</button>
-  <h2 class="font-bold text-lg">General</h2>
-</header>
+  <!-- ========== APP (UNCHANGED STRUCTURE) ========== -->
+  <div id="main-app" style="width:100%;height:100%;">
+    <!-- SIDEBAR -->
+    <aside id="sidebar" class="flex flex-col">
+      <div class="p-6 flex justify-between items-center">
+        <h1 class="font-bold text-2xl">Chats</h1>
+      </div>
 
-<div id="messages"
-  class="flex-1 overflow-y-auto px-6 py-6 space-y-4 scrollbar-hide bg-white"></div>
+      <div id="contact-list" class="flex-1 px-3">
+        <div id="contact-General" class="chat-list-item p-4 rounded-2xl flex items-center gap-4 cursor-pointer active-chat" onclick="switchChat()">
+          <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=General" class="w-14 h-14 rounded-full bg-blue-100">
+          <div class="flex-1">
+            <div class="flex justify-between">
+              <span class="font-bold">General</span>
+              <span class="text-xs text-gray-400">Live</span>
+            </div>
+            <p class="text-sm text-gray-500">Welcome to the common chat room.</p>
+          </div>
+        </div>
+      </div>
+    </aside>
 
-<!-- Typing indicator -->
-<div id="typing" class="hidden px-6 pb-2">
-  <div id="typingName" class="text-xs text-gray-500 mb-1"></div>
-  <div class="bg-gray-100 inline-flex px-4 py-3 rounded-2xl">
-    <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    <!-- CHAT -->
+    <main id="main-chat" class="flex flex-col" style="flex:1;">
+      <header class="h-20 flex items-center px-6 border-b">
+        <button onclick="goBack()" class="md:hidden mr-3 text-3xl font-bold flex items-center justify-center w-10 h-10">&larr;</button>
+        <h2 class="font-bold text-lg">General</h2>
+      </header>
+
+      <div id="messages-container" class="flex-1 overflow-y-auto px-6 py-6 space-y-4 scrollbar-hide bg-white">
+        <!-- messages will be appended here -->
+      </div>
+
+      <!-- typing indicator (hidden by default) -->
+      <div id="typing-indicator" class="px-6 pb-2 hidden">
+        <div class="typing-wrap">
+          <div id="typing-name" class="text-xs text-gray-500 mr-2"></div>
+          <div class="typing-bubble">
+            <div class="dots">
+              <div class="dot"></div>
+              <div class="dot"></div>
+              <div class="dot"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer>
+        <div class="input-area" style="align-items:flex-end;">
+          <textarea id="message-input" placeholder="Signal Message" rows="1"></textarea>
+        </div>
+        <button id="send-btn" class="send-btn btn-touch" aria-label="Send">
+          <!-- triangular icon -->
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 11.5L21 3L13 21L11 13L3 11.5Z" fill="white"/>
+          </svg>
+        </button>
+      </footer>
+    </main>
   </div>
-</div>
 
-<footer class="p-4 border-t flex gap-3">
-  <textarea id="input"
-    class="flex-1 bg-gray-50 rounded-2xl px-4 py-2 resize-none"
-    placeholder="Signal Message"></textarea>
-  <button id="send"
-    class="w-12 h-12 bg-signal-blue text-white rounded-full">➤</button>
-</footer>
-</main>
-</div>
+  <!-- ========== FIREBASE (compat libs) ========== -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
-<!-- ================= FIREBASE ================= -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script>
+  /******************************************************************
+   * FINAL integrated script:
+   * - onboarding
+   * - robust message sending (clientTime + serverTimestamp)
+   * - realtime message listener (ordered by clientTime)
+   * - typing indicator (per-user doc with typing:true/false)
+   * - mobile input clearing + height reset + auto-resize
+   ******************************************************************/
 
-<script>
-firebase.initializeApp({
-  apiKey:"AIzaSyCY2qB4sbPs_7BIz355cQiQkDDqK-S_z4I",
-  projectId:"flux-chat-b9cb2"
-});
-const db=firebase.firestore();
+  // ---------- FIREBASE INIT ----------
+  firebase.initializeApp({
+    apiKey: "AIzaSyCY2qB4sbPs_7BIz355cQiQkDDqK-S_z4I",
+    projectId: "flux-chat-b9cb2"
+  });
+  const db = firebase.firestore();
 
-const MY_ID=localStorage.uid||(()=>{
-  const id="u_"+Math.random().toString(36).slice(2,9);
-  localStorage.uid=id;return id;
-})();
+  // ---------- CHAT / USER SETUP ----------
+  const CHAT_ID = "general";
+  const MY_ID = localStorage.getItem("signal_uid") || (() => {
+    const id = "u_" + Math.random().toString(36).slice(2,9);
+    localStorage.setItem("signal_uid", id);
+    return id;
+  })();
 
-const msgs=document.getElementById("messages");
-const input=document.getElementById("input");
-const send=document.getElementById("send");
-const typingBox=document.getElementById("typing");
-const typingName=document.getElementById("typingName");
+  // DOM references
+  const onboarding = document.getElementById("onboarding-overlay");
+  const nameInput = document.getElementById("name-input");
+  const profileForm = document.getElementById("profileForm");
+  const continueBtn = document.getElementById("continue-btn");
 
-function switchChat(){document.body.className="view-chat";}
-function goBack(){document.body.className="view-list";}
+  const messagesContainer = document.getElementById("messages-container");
+  const messageInput = document.getElementById("message-input");
+  const sendBtn = document.getElementById("send-btn");
+  const typingIndicator = document.getElementById("typing-indicator");
+  const typingNameEl = document.getElementById("typing-name");
 
-/* ONBOARDING */
-const overlay=document.getElementById("onboarding");
-if(localStorage.name) overlay.remove();
-document.getElementById("profileForm").onsubmit=e=>{
-  e.preventDefault();
-  localStorage.name=document.getElementById("nameInput").value;
-  overlay.remove();
-};
+  // store name if present
+  if (localStorage.getItem("chat_name")) {
+    // hide overlay
+    if (onboarding && onboarding.parentElement) onboarding.remove();
+  } else {
+    // focus name input when overlay visible
+    setTimeout(()=> nameInput.focus(), 150);
+  }
 
-/* MESSAGES */
-db.collection("public").doc("general").collection("messages")
-.orderBy("createdAt")
-.onSnapshot(s=>{
-  msgs.innerHTML="";
-  s.forEach(d=>{
-    const m=d.data();
-    const wrap=document.createElement("div");
-    wrap.className=`flex flex-col ${m.sender===MY_ID?"items-end":"items-start"} message-appear`;
+  // ---------- ONBOARDING SUBMIT ----------
+  profileForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = (nameInput.value || "").trim();
+    if (!name) return;
+    localStorage.setItem("chat_name", name);
+    // fade out and remove overlay cleanly
+    onboarding.style.transition = "opacity .35s ease, transform .35s ease";
+    onboarding.style.opacity = "0";
+    onboarding.style.transform = "translateY(6px)";
+    setTimeout(() => {
+      if (onboarding && onboarding.parentElement) onboarding.remove();
+    }, 380);
+  });
 
-    if(m.sender!==MY_ID){
-      const n=document.createElement("div");
-      n.className="text-xs text-gray-500 mb-1";
-      n.textContent=m.name;
-      wrap.appendChild(n);
+  // convenience getter for my name
+  function myName() { return localStorage.getItem("chat_name") || "Anonymous"; }
+
+  // ---------- TYPING COLLECTION ----------
+  const typingRef = db.collection("public").doc(CHAT_ID).collection("typing");
+
+  // mark typing true while typing, then false after pause
+  let typingTimeout = null;
+  messageInput.addEventListener("input", () => {
+    // set typing true with short debounce to avoid over-writing
+    typingRef.doc(MY_ID).set({
+      name: myName(),
+      typing: true,
+      ts: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(()=>{/* ignore */});
+
+    clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(() => {
+      typingRef.doc(MY_ID).set({ typing: false }, { merge: true }).catch(()=>{/* ignore */});
+    }, 1200);
+
+    // auto-resize the textarea
+    messageInput.style.height = "auto";
+    messageInput.style.height = (messageInput.scrollHeight) + "px";
+  });
+
+  // when window unload (close / refresh), mark typing false
+  window.addEventListener("beforeunload", () => {
+    try { typingRef.doc(MY_ID).set({ typing: false }, { merge: true }); } catch(e) {}
+  });
+
+  // ---------- LISTEN FOR OTHER USERS TYPING ----------
+  typingRef.onSnapshot((snap) => {
+    let someoneTyping = false;
+    let firstName = "";
+    snap.forEach(doc => {
+      const id = doc.id;
+      const data = doc.data();
+      if (id !== MY_ID && data && data.typing) {
+        someoneTyping = true;
+        firstName = data.name || "Someone";
+      }
+    });
+    if (someoneTyping) {
+      typingNameEl.textContent = firstName;
+      typingIndicator.classList.remove("hidden");
+      typingIndicator.setAttribute("aria-hidden", "false");
+    } else {
+      typingIndicator.classList.add("hidden");
+      typingIndicator.setAttribute("aria-hidden", "true");
     }
-
-    const b=document.createElement("div");
-    b.className=m.sender===MY_ID
-      ?"bg-signal-blue text-white px-4 py-3 rounded-2xl rounded-br-none"
-      :"bg-gray-100 px-4 py-3 rounded-2xl rounded-bl-none";
-    b.textContent=m.text;
-    wrap.appendChild(b);
-
-    msgs.appendChild(wrap);
+  }, err => {
+    console.error("typingRef snapshot error:", err);
   });
-  msgs.scrollTop=msgs.scrollHeight;
-});
 
-/* TYPING */
-const typingRef=db.collection("public").doc("general").collection("typing");
-let tTimeout;
-
-input.addEventListener("input",()=>{
-  typingRef.doc(MY_ID).set({name:localStorage.name});
-  clearTimeout(tTimeout);
-  tTimeout=setTimeout(()=>typingRef.doc(MY_ID).delete(),1200);
-});
-
-typingRef.onSnapshot(s=>{
-  let show=false;
-  s.forEach(d=>{
-    if(d.id!==MY_ID){
-      typingName.textContent=d.data().name+" is typing";
-      show=true;
+  // ---------- SEND MESSAGE ----------
+  sendBtn.addEventListener("click", sendMessage);
+  messageInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
     }
   });
-  typingBox.classList.toggle("hidden",!show);
-});
 
-/* SEND */
-send.onclick=async()=>{
-  if(!input.value.trim())return;
-  await db.collection("public").doc("general").collection("messages").add({
-    text:input.value,
-    sender:MY_ID,
-    name:localStorage.name,
-    createdAt:firebase.firestore.FieldValue.serverTimestamp()
-  });
-  await typingRef.doc(MY_ID).delete();
-  input.value="";
-};
-</script>
+  async function sendMessage() {
+    const text = messageInput.value.trim();
+    if (!text) return;
 
+    // disable to prevent double-click
+    sendBtn.disabled = true;
+
+    try {
+      await db.collection("public").doc(CHAT_ID)
+        .collection("messages")
+        .add({
+          text,
+          senderId: MY_ID,
+          name: myName(),
+          clientTime: Date.now(), // immediate ordering fallback
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+      // mark typing false for me
+      await typingRef.doc(MY_ID).set({ typing: false }, { merge: true });
+    } catch (err) {
+      console.error("send message error", err);
+    } finally {
+      // clear input and reset height reliably on mobile
+      messageInput.value = "";
+      messageInput.style.height = "auto";
+      // mobile browsers sometimes persist composition — do a blur/focus hack
+      messageInput.blur();
+      setTimeout(()=> messageInput.focus(), 30);
+      sendBtn.disabled = false;
+    }
+  }
+
+  // ---------- REALTIME MESSAGES (ORDERED BY clientTime) ----------
+  // Note: we order by clientTime, to avoid "null" ordering issues while serverTimestamp propagates.
+  db.collection("public").doc(CHAT_ID)
+    .collection("messages")
+    .orderBy("clientTime")
+    .onSnapshot(snap => {
+      // clear and re-render
+      messagesContainer.innerHTML = "";
+      // optional top label
+      const topLabel = document.createElement("div");
+      topLabel.className = "flex justify-center mb-2";
+      topLabel.innerHTML = '<span class="text-xs text-gray-400">SIGNAL MESSAGE</span>';
+      messagesContainer.appendChild(topLabel);
+
+      snap.forEach(doc => {
+        const m = doc.data();
+        // create wrapper
+        const wrap = document.createElement("div");
+        wrap.className = "flex flex-col " + (m.senderId === MY_ID ? "items-end" : "items-start") + " message-appear";
+
+        // show name above bubble for other users (or for all non-me)
+        if (m.senderId !== MY_ID) {
+          const nameEl = document.createElement("div");
+          nameEl.className = "meta-name";
+          nameEl.textContent = (m.name || "Anonymous");
+          wrap.appendChild(nameEl);
+        }
+
+        // bubble
+        const bubble = document.createElement("div");
+        bubble.className = "bubble " + (m.senderId === MY_ID ? "me" : "other");
+        bubble.textContent = m.text || "";
+        wrap.appendChild(bubble);
+
+        messagesContainer.appendChild(wrap);
+      });
+
+      // keep scrolled to bottom
+      messagesContainer.scrollTop = messagesContainer.scrollHeight + 200;
+    }, err => {
+      console.error("messages snapshot error:", err);
+    });
+
+  // ---------- helpers: slide view functions kept ----------
+  function switchChat(){ document.body.className = "view-chat"; }
+  function goBack(){ document.body.className = "view-list"; }
+  window.switchChat = switchChat;
+  window.goBack = goBack;
+
+  // expose to debugging if needed
+  window.__signal_dbg = { db, typingRef, MY_ID };
+
+  </script>
 </body>
 </html>
