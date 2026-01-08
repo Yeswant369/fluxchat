@@ -123,7 +123,32 @@ const messaging = firebase.messaging();
 
 /* 🔑 VAPID KEY (CLIENT ONLY) */
 <script>
-/* 🔑 VAPID KEY + SAVE FCM TOKEN TO FIRESTORE */
+/* 🔐 FIREBASE INIT */
+firebase.initializeApp({
+  apiKey: "AIzaSyCY2qB4sbPs_7BIz355cQiQkDDqK-S_z4I",
+  projectId: "flux-chat-b9cb2",
+  messagingSenderId: "887456585588",
+  appId: "1:887456585588:web:7a0689fb9feacc9dcebe21"
+});
+
+const db = firebase.firestore();
+const messaging = firebase.messaging();
+
+/* 👤 USER ID */
+const MY_ID = localStorage.signal_id || (() => {
+  const id = "user_" + Math.random().toString(36).slice(2,9);
+  localStorage.signal_id = id;
+  return id;
+})();
+
+/* 👤 NAME PROMPT (TEMP) */
+if (!localStorage.chat_name) {
+  const name = prompt("Enter your display name:");
+  localStorage.chat_name = name || "Anonymous";
+}
+const MY_NAME = localStorage.chat_name;
+
+/* 🔑 GET + SAVE FCM TOKEN */
 messaging.getToken({
   vapidKey: "BIU-xNGUR896ZQg697fZCJs4DYgiO3IwNFLosDymP9JhZt_mi3bs6vrv7T9ZER8BwkePLOrzG08pnri26xZBgUY"
 })
@@ -135,7 +160,6 @@ messaging.getToken({
 
   console.log("FCM Token:", token);
 
-  // ✅ SAVE TOKEN TO FIRESTORE
   await db.collection("users").doc(MY_ID).set({
     name: MY_NAME,
     fcmToken: token,
@@ -148,7 +172,67 @@ messaging.getToken({
 .catch(err => {
   console.error("FCM token error:", err);
 });
+
+/* UI */
+const messagesContainer = document.getElementById("messages-container");
+const messageInput = document.getElementById("message-input");
+const sendBtn = document.getElementById("send-btn");
+const CHAT_ID = "general";
+
+function switchChat(){ document.body.className = "view-chat"; }
+function goBack(){ document.body.className = "view-list"; }
+
+/* 🔥 LISTENER */
+db.collection("public").doc(CHAT_ID).collection("messages")
+.orderBy("createdAt")
+.onSnapshot(snap => {
+  messagesContainer.innerHTML = `
+    <div class="flex justify-center mb-4">
+      <span class="text-xs text-gray-400">SIGNAL MESSAGE</span>
+    </div>
+  `;
+  snap.forEach(doc => {
+    const m = doc.data();
+    const isMe = m.senderId === MY_ID;
+
+    messagesContainer.insertAdjacentHTML("beforeend", `
+      <div class="flex flex-col ${isMe ? "items-end" : "items-start"} message-appear">
+        ${!isMe ? `<div class="text-xs text-gray-500 mb-1">${m.name}</div>` : ""}
+        <div class="${
+          isMe
+            ? "bg-signal-blue text-white rounded-br-none"
+            : "bg-gray-100 text-gray-800 rounded-bl-none"
+        } px-4 py-3 rounded-[1.25rem] max-w-[80%]">
+          ${m.text}
+        </div>
+      </div>
+    `);
+  });
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+});
+
+/* ✉️ SEND */
+sendBtn.onclick = async () => {
+  const text = messageInput.value.trim();
+  if (!text) return;
+
+  messageInput.value = "";
+
+  await db.collection("public").doc(CHAT_ID).collection("messages").add({
+    text,
+    senderId: MY_ID,
+    name: MY_NAME,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+};
+
+/* AUTO RESIZE */
+messageInput.addEventListener("input", () => {
+  messageInput.style.height = "auto";
+  messageInput.style.height = messageInput.scrollHeight + "px";
+});
 </script>
+
 
 
 /* 👤 TEMP USER ID */
