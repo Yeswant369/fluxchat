@@ -122,11 +122,34 @@ const db = firebase.firestore();
 const messaging = firebase.messaging();
 
 /* 🔑 VAPID KEY (CLIENT ONLY) */
+<script>
+/* 🔑 VAPID KEY + SAVE FCM TOKEN TO FIRESTORE */
 messaging.getToken({
   vapidKey: "BIU-xNGUR896ZQg697fZCJs4DYgiO3IwNFLosDymP9JhZt_mi3bs6vrv7T9ZER8BwkePLOrzG08pnri26xZBgUY"
-}).then(token => {
-  if (token) console.log("FCM Token:", token);
+})
+.then(async (token) => {
+  if (!token) {
+    console.warn("No FCM token received");
+    return;
+  }
+
+  console.log("FCM Token:", token);
+
+  // ✅ SAVE TOKEN TO FIRESTORE
+  await db.collection("users").doc(MY_ID).set({
+    name: MY_NAME,
+    fcmToken: token,
+    platform: "web",
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+
+  console.log("FCM token saved to Firestore");
+})
+.catch(err => {
+  console.error("FCM token error:", err);
 });
+</script>
+
 
 /* 👤 TEMP USER ID */
 const MY_ID = localStorage.signal_id || (() => {
