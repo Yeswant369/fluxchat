@@ -10,11 +10,13 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-  <!-- ✅ Firebase Messaging -->
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js"></script>
 
 <style>
-/* 🔒 ORIGINAL UI — UNCHANGED */
+/* ===== ORIGINAL SIGNAL UI (UNCHANGED) ===== */
 :root {
   --signal-blue:#2C6BED;
   --ios-curve:cubic-bezier(0.4,0,0.2,1);
@@ -59,11 +61,11 @@ body{
 
 <!-- SIDEBAR -->
 <aside id="sidebar" class="flex flex-col">
-  <div class="p-6 flex justify-between items-center">
+  <div class="p-6">
     <h1 class="font-bold text-2xl">Chats</h1>
   </div>
 
-  <div id="contact-list" class="flex-1 px-3">
+  <div class="px-3">
     <div class="chat-list-item p-4 rounded-2xl flex items-center gap-4 cursor-pointer active-chat"
          onclick="switchChat()">
       <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=General"
@@ -105,12 +107,8 @@ body{
 </main>
 </div>
 
-<!-- FIREBASE -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
 <script>
-/* 🔐 FIREBASE INIT */
+/* ================= FIREBASE INIT ================= */
 firebase.initializeApp({
   apiKey: "AIzaSyCY2qB4sbPs_7BIz355cQiQkDDqK-S_z4I",
   projectId: "flux-chat-b9cb2",
@@ -121,44 +119,25 @@ firebase.initializeApp({
 const db = firebase.firestore();
 const messaging = firebase.messaging();
 
-/* 🔑 VAPID KEY (CLIENT ONLY) */
-<script>
-/* 🔐 FIREBASE INIT */
-firebase.initializeApp({
-  apiKey: "AIzaSyCY2qB4sbPs_7BIz355cQiQkDDqK-S_z4I",
-  projectId: "flux-chat-b9cb2",
-  messagingSenderId: "887456585588",
-  appId: "1:887456585588:web:7a0689fb9feacc9dcebe21"
-});
-
-const db = firebase.firestore();
-const messaging = firebase.messaging();
-
-/* 👤 USER ID */
+/* ================= USER ID ================= */
 const MY_ID = localStorage.signal_id || (() => {
   const id = "user_" + Math.random().toString(36).slice(2,9);
   localStorage.signal_id = id;
   return id;
 })();
 
-/* 👤 NAME PROMPT (TEMP) */
+/* ================= NAME PROMPT ================= */
 if (!localStorage.chat_name) {
   const name = prompt("Enter your display name:");
   localStorage.chat_name = name || "Anonymous";
 }
 const MY_NAME = localStorage.chat_name;
 
-/* 🔑 GET + SAVE FCM TOKEN */
+/* ================= FCM TOKEN ================= */
 messaging.getToken({
   vapidKey: "BIU-xNGUR896ZQg697fZCJs4DYgiO3IwNFLosDymP9JhZt_mi3bs6vrv7T9ZER8BwkePLOrzG08pnri26xZBgUY"
-})
-.then(async (token) => {
-  if (!token) {
-    console.warn("No FCM token received");
-    return;
-  }
-
-  console.log("FCM Token:", token);
+}).then(async token => {
+  if (!token) return;
 
   await db.collection("users").doc(MY_ID).set({
     name: MY_NAME,
@@ -166,14 +145,9 @@ messaging.getToken({
     platform: "web",
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   }, { merge: true });
-
-  console.log("FCM token saved to Firestore");
-})
-.catch(err => {
-  console.error("FCM token error:", err);
 });
 
-/* UI */
+/* ================= UI ================= */
 const messagesContainer = document.getElementById("messages-container");
 const messageInput = document.getElementById("message-input");
 const sendBtn = document.getElementById("send-btn");
@@ -182,16 +156,17 @@ const CHAT_ID = "general";
 function switchChat(){ document.body.className = "view-chat"; }
 function goBack(){ document.body.className = "view-list"; }
 
-/* 🔥 LISTENER */
+/* ================= LISTENER ================= */
 db.collection("public").doc(CHAT_ID).collection("messages")
 .orderBy("createdAt")
-.onSnapshot(snap => {
+.onSnapshot(snapshot => {
   messagesContainer.innerHTML = `
     <div class="flex justify-center mb-4">
       <span class="text-xs text-gray-400">SIGNAL MESSAGE</span>
     </div>
   `;
-  snap.forEach(doc => {
+
+  snapshot.forEach(doc => {
     const m = doc.data();
     const isMe = m.senderId === MY_ID;
 
@@ -199,19 +174,19 @@ db.collection("public").doc(CHAT_ID).collection("messages")
       <div class="flex flex-col ${isMe ? "items-end" : "items-start"} message-appear">
         ${!isMe ? `<div class="text-xs text-gray-500 mb-1">${m.name}</div>` : ""}
         <div class="${
-          isMe
-            ? "bg-signal-blue text-white rounded-br-none"
-            : "bg-gray-100 text-gray-800 rounded-bl-none"
+          isMe ? "bg-signal-blue text-white rounded-br-none"
+               : "bg-gray-100 text-gray-800 rounded-bl-none"
         } px-4 py-3 rounded-[1.25rem] max-w-[80%]">
           ${m.text}
         </div>
       </div>
     `);
   });
+
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
 });
 
-/* ✉️ SEND */
+/* ================= SEND ================= */
 sendBtn.onclick = async () => {
   const text = messageInput.value.trim();
   if (!text) return;
@@ -226,82 +201,7 @@ sendBtn.onclick = async () => {
   });
 };
 
-/* AUTO RESIZE */
-messageInput.addEventListener("input", () => {
-  messageInput.style.height = "auto";
-  messageInput.style.height = messageInput.scrollHeight + "px";
-});
-</script>
-
-
-
-/* 👤 TEMP USER ID */
-const MY_ID = localStorage.signal_id || (() => {
-  const id = "user_" + Math.random().toString(36).slice(2,9);
-  localStorage.signal_id = id;
-  return id;
-})();
-
-/* 👤 TEMP NAME PROMPT (NO UI CHANGE) */
-if (!localStorage.chat_name) {
-  const name = prompt("Enter your display name:");
-  localStorage.chat_name = name || "Anonymous";
-}
-const MY_NAME = localStorage.chat_name;
-
-const messagesContainer = document.getElementById("messages-container");
-const messageInput = document.getElementById("message-input");
-const sendBtn = document.getElementById("send-btn");
-const CHAT_ID = "general";
-
-function switchChat(){ document.body.className = "view-chat"; }
-function goBack(){ document.body.className = "view-list"; }
-
-/* 🔥 LISTENER */
-db.collection("public").doc(CHAT_ID).collection("messages")
-.orderBy("createdAt")
-.onSnapshot(snap => {
-  messagesContainer.innerHTML = `
-    <div class="flex justify-center mb-4">
-      <span class="text-xs text-gray-400">SIGNAL MESSAGE</span>
-    </div>
-  `;
-  snap.forEach(doc => {
-    const m = doc.data();
-    const isMe = m.senderId === MY_ID;
-
-    messagesContainer.insertAdjacentHTML("beforeend", `
-      <div class="flex flex-col ${isMe ? "items-end" : "items-start"} message-appear">
-        ${!isMe ? `<div class="text-xs text-gray-500 mb-1">${m.name}</div>` : ""}
-        <div class="${
-          isMe
-            ? "bg-signal-blue text-white rounded-br-none"
-            : "bg-gray-100 text-gray-800 rounded-bl-none"
-        } px-4 py-3 rounded-[1.25rem] max-w-[80%]">
-          ${m.text}
-        </div>
-      </div>
-    `);
-  });
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
-});
-
-/* ✉️ SEND */
-sendBtn.onclick = async () => {
-  const text = messageInput.value.trim();
-  if (!text) return;
-
-  messageInput.value = "";
-
-  await db.collection("public").doc(CHAT_ID).collection("messages").add({
-    text,
-    senderId: MY_ID,
-    name: MY_NAME,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  });
-};
-
-/* AUTO RESIZE */
+/* ================= AUTO RESIZE ================= */
 messageInput.addEventListener("input", () => {
   messageInput.style.height = "auto";
   messageInput.style.height = messageInput.scrollHeight + "px";
