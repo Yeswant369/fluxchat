@@ -12,8 +12,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
 
 <style>
-/* ================= SIGNAL UI (UNCHANGED) ================= */
-:root {
+/* ================= SIGNAL UI ================= */
+:root{
   --signal-blue:#2C6BED;
   --ios-curve:cubic-bezier(0.4,0,0.2,1);
 }
@@ -24,8 +24,10 @@ body{
 }
 .bg-signal-blue{background-color:var(--signal-blue);}
 .scrollbar-hide::-webkit-scrollbar{display:none;}
+
 #main-app{display:flex;width:100%;height:100%;background:#fff;overflow:hidden;}
 #sidebar,#main-chat{height:100%;transition:transform .5s var(--ios-curve),opacity .4s ease;}
+
 @media(max-width:767px){
   #sidebar{width:100%;position:absolute;z-index:10}
   #main-chat{width:100%;position:absolute;transform:translateX(100%);z-index:20}
@@ -38,64 +40,38 @@ body{
   #sidebar{width:360px;border-right:1px solid #f3f4f6}
   #main-chat{flex:1;transform:none!important}
 }
-.btn-touch{transition:.15s ease}
-.btn-touch:active{transform:scale(.92);opacity:.7}
-.chat-list-item{transition:.2s ease}
-.chat-list-item:active{transform:scale(.98);background:#f0f2f5}
-.active-chat{background:#e8effd!important}
-.message-appear{animation:popIn .3s cubic-bezier(.175,.885,.32,1.2)}
+
+.message-appear{animation:popIn .25s cubic-bezier(.175,.885,.32,1.2)}
 @keyframes popIn{
-  from{opacity:0;transform:scale(.9) translateY(10px)}
-  to{opacity:1;transform:scale(1) translateY(0)}
+  from{opacity:0;transform:translateY(6px) scale(.96)}
+  to{opacity:1;transform:none}
 }
 
-/* ================= FIXED LAYOUT ================= */
-#messages-container{
-  padding-top:1rem;
+/* ================= TYPING DOTS ================= */
+.dot{
+  width:6px;height:6px;margin:0 2px;
+  background:#9ca3af;border-radius:50%;
+  animation:bounce 1.4s infinite ease-in-out both;
 }
-
-/* ================= TYPING INDICATOR ================= */
-.typing-dots span{
-  width:6px;height:6px;border-radius:50%;
-  background:#999;display:inline-block;
-  animation:dotBounce 1.4s infinite ease-in-out both;
-}
-.typing-dots span:nth-child(1){animation-delay:-.32s}
-.typing-dots span:nth-child(2){animation-delay:-.16s}
-@keyframes dotBounce{
+.dot:nth-child(1){animation-delay:-.32s}
+.dot:nth-child(2){animation-delay:-.16s}
+@keyframes bounce{
   0%,80%,100%{transform:scale(0)}
   40%{transform:scale(1)}
 }
 
-/* ================= FORM (UNCHANGED EFFECTS) ================= */
-#onboarding-overlay{
+/* ================= ONBOARDING ================= */
+#onboarding{
   position:fixed;inset:0;z-index:9999;
   font-family:'Plus Jakarta Sans',sans-serif;
   background:linear-gradient(135deg,#f0f4ff,#e0eaff);
   display:flex;align-items:center;justify-content:center;
 }
-@keyframes squish-pop{
-  0%{transform:scale(1)}
-  30%{transform:scale(.92,1.08)}
-  50%{transform:scale(1.04,.96)}
-  70%{transform:scale(.98,1.02)}
-  100%{transform:scale(1)}
-}
-.squishy-element{transition:.4s cubic-bezier(.175,.885,.32,1.275)}
-.squishy-element:active{transform:scale(.95)}
 .form-card{
   background:rgba(255,255,255,.85);
   backdrop-filter:blur(20px);
   border-radius:2.5rem;
   padding:2.5rem;
-  animation:slideUp .8s cubic-bezier(.22,1,.36,1);
-}
-@keyframes slideUp{
-  from{opacity:0;transform:translateY(30px)}
-  to{opacity:1;transform:none}
-}
-.gender-option input:checked + label{
-  background:#4f46e5;color:#fff;transform:scale(1.05)
 }
 </style>
 </head>
@@ -103,15 +79,15 @@ body{
 <body class="view-list">
 
 <!-- ================= ONBOARDING ================= -->
-<div id="onboarding-overlay">
-  <div class="form-card w-full max-w-md">
-    <h1 class="text-3xl font-extrabold text-center mb-2">Welcome</h1>
-    <p class="text-gray-500 text-center mb-6">Let's get to know you better</p>
-
-    <form id="profileForm" class="space-y-6">
-      <input id="name" required class="w-full px-5 py-4 rounded-2xl outline-none bg-white"
-        placeholder="Type your name..." />
-      <button class="w-full squishy-element bg-indigo-600 text-white py-4 rounded-2xl font-black">
+<div id="onboarding">
+  <div class="form-card w-full max-w-md text-center">
+    <h1 class="text-3xl font-extrabold mb-2">Welcome</h1>
+    <p class="text-gray-500 mb-6">Enter your name</p>
+    <form id="profileForm">
+      <input id="nameInput" required
+        class="w-full px-5 py-4 rounded-2xl border mb-6"
+        placeholder="Your name" />
+      <button class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black">
         Continue
       </button>
     </form>
@@ -121,36 +97,46 @@ body{
 <!-- ================= APP ================= -->
 <div id="main-app">
 
+<!-- SIDEBAR -->
 <aside id="sidebar" class="flex flex-col">
-  <div class="p-6"><h1 class="font-bold text-2xl">Chats</h1></div>
+  <div class="p-6 font-bold text-2xl">Chats</div>
   <div class="px-3">
-    <div class="chat-list-item p-4 rounded-2xl flex gap-4 cursor-pointer active-chat" onclick="switchChat()">
-      <div class="font-bold">General</div>
+    <div class="p-4 rounded-2xl flex gap-4 bg-blue-50 cursor-pointer"
+      onclick="switchChat()">
+      <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=General"
+        class="w-14 h-14 rounded-full bg-blue-100">
+      <div>
+        <div class="font-bold">General</div>
+        <div class="text-sm text-gray-500">Public chat</div>
+      </div>
     </div>
   </div>
 </aside>
 
+<!-- CHAT -->
 <main id="main-chat" class="flex flex-col">
 <header class="h-20 flex items-center px-6 border-b">
   <button onclick="goBack()" class="md:hidden mr-3 text-3xl">&larr;</button>
-  <h2 class="font-bold">General</h2>
+  <h2 class="font-bold text-lg">General</h2>
 </header>
 
-<div id="messages-container" class="flex-1 overflow-y-auto px-6 py-6 space-y-4"></div>
+<div id="messages"
+  class="flex-1 overflow-y-auto px-6 py-6 space-y-4 scrollbar-hide bg-white"></div>
 
-<!-- TYPING -->
-<div id="typing-indicator" class="hidden px-6 pb-2">
-  <div class="flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-2xl w-fit">
-    <div class="typing-dots flex gap-1">
-      <span></span><span></span><span></span>
-    </div>
+<!-- Typing indicator -->
+<div id="typing" class="hidden px-6 pb-2">
+  <div id="typingName" class="text-xs text-gray-500 mb-1"></div>
+  <div class="bg-gray-100 inline-flex px-4 py-3 rounded-2xl">
+    <div class="dot"></div><div class="dot"></div><div class="dot"></div>
   </div>
 </div>
 
 <footer class="p-4 border-t flex gap-3">
-<textarea id="message-input" class="flex-1 bg-gray-50 rounded-2xl px-4 py-2 resize-none"
- placeholder="Signal Message"></textarea>
-<button id="send-btn" class="btn-touch w-12 h-12 bg-signal-blue text-white rounded-full">➤</button>
+  <textarea id="input"
+    class="flex-1 bg-gray-50 rounded-2xl px-4 py-2 resize-none"
+    placeholder="Signal Message"></textarea>
+  <button id="send"
+    class="w-12 h-12 bg-signal-blue text-white rounded-full">➤</button>
 </footer>
 </main>
 </div>
@@ -166,29 +152,40 @@ firebase.initializeApp({
 });
 const db=firebase.firestore();
 
-const MY_ID=localStorage.signal_id||(()=>{
-  const id="user_"+Math.random().toString(36).slice(2,9);
-  localStorage.signal_id=id;return id;
+const MY_ID=localStorage.uid||(()=>{
+  const id="u_"+Math.random().toString(36).slice(2,9);
+  localStorage.uid=id;return id;
 })();
 
-const messagesContainer=document.getElementById("messages-container");
-const typingIndicator=document.getElementById("typing-indicator");
-const messageInput=document.getElementById("message-input");
+const msgs=document.getElementById("messages");
+const input=document.getElementById("input");
+const send=document.getElementById("send");
+const typingBox=document.getElementById("typing");
+const typingName=document.getElementById("typingName");
 
 function switchChat(){document.body.className="view-chat";}
 function goBack(){document.body.className="view-list";}
 
-/* ===== MESSAGES ===== */
+/* ONBOARDING */
+const overlay=document.getElementById("onboarding");
+if(localStorage.name) overlay.remove();
+document.getElementById("profileForm").onsubmit=e=>{
+  e.preventDefault();
+  localStorage.name=document.getElementById("nameInput").value;
+  overlay.remove();
+};
+
+/* MESSAGES */
 db.collection("public").doc("general").collection("messages")
 .orderBy("createdAt")
-.onSnapshot(snap=>{
-  messagesContainer.innerHTML="";
-  snap.forEach(doc=>{
-    const m=doc.data();
+.onSnapshot(s=>{
+  msgs.innerHTML="";
+  s.forEach(d=>{
+    const m=d.data();
     const wrap=document.createElement("div");
-    wrap.className=`flex flex-col ${m.senderId===MY_ID?"items-end":"items-start"} message-appear`;
+    wrap.className=`flex flex-col ${m.sender===MY_ID?"items-end":"items-start"} message-appear`;
 
-    if(m.senderId!==MY_ID){
+    if(m.sender!==MY_ID){
       const n=document.createElement("div");
       n.className="text-xs text-gray-500 mb-1";
       n.textContent=m.name;
@@ -196,60 +193,49 @@ db.collection("public").doc("general").collection("messages")
     }
 
     const b=document.createElement("div");
-    b.className=m.senderId===MY_ID?
-      "bg-signal-blue text-white px-4 py-3 rounded-2xl rounded-br-none":
-      "bg-gray-100 px-4 py-3 rounded-2xl rounded-bl-none";
+    b.className=m.sender===MY_ID
+      ?"bg-signal-blue text-white px-4 py-3 rounded-2xl rounded-br-none"
+      :"bg-gray-100 px-4 py-3 rounded-2xl rounded-bl-none";
     b.textContent=m.text;
     wrap.appendChild(b);
 
-    messagesContainer.appendChild(wrap);
+    msgs.appendChild(wrap);
   });
-  messagesContainer.scrollTop=messagesContainer.scrollHeight;
+  msgs.scrollTop=msgs.scrollHeight;
 });
 
-/* ===== TYPING ===== */
-const typingRef=db.collection("public").doc("general").collection("typing").doc(MY_ID);
-let typingTimer;
+/* TYPING */
+const typingRef=db.collection("public").doc("general").collection("typing");
+let tTimeout;
 
-messageInput.addEventListener("input",()=>{
-  typingRef.set({typing:true,name:localStorage.chat_name});
-  clearTimeout(typingTimer);
-  typingTimer=setTimeout(()=>{
-    typingRef.set({typing:false},{merge:true});
-  },700);
+input.addEventListener("input",()=>{
+  typingRef.doc(MY_ID).set({name:localStorage.name});
+  clearTimeout(tTimeout);
+  tTimeout=setTimeout(()=>typingRef.doc(MY_ID).delete(),1200);
 });
 
-db.collection("public").doc("general").collection("typing")
-.onSnapshot(snap=>{
+typingRef.onSnapshot(s=>{
   let show=false;
-  snap.forEach(d=>{
-    if(d.id!==MY_ID && d.data().typing) show=true;
+  s.forEach(d=>{
+    if(d.id!==MY_ID){
+      typingName.textContent=d.data().name+" is typing";
+      show=true;
+    }
   });
-  typingIndicator.classList.toggle("hidden",!show);
+  typingBox.classList.toggle("hidden",!show);
 });
 
-/* ===== SEND ===== */
-document.getElementById("send-btn").onclick=async()=>{
-  if(!messageInput.value.trim())return;
+/* SEND */
+send.onclick=async()=>{
+  if(!input.value.trim())return;
   await db.collection("public").doc("general").collection("messages").add({
-    text:messageInput.value,
-    senderId:MY_ID,
-    name:localStorage.chat_name,
+    text:input.value,
+    sender:MY_ID,
+    name:localStorage.name,
     createdAt:firebase.firestore.FieldValue.serverTimestamp()
   });
-  messageInput.value="";
-  typingRef.set({typing:false},{merge:true});
-};
-
-/* ===== ONBOARDING ===== */
-const overlay=document.getElementById("onboarding-overlay");
-if(localStorage.chat_name) overlay.remove();
-
-document.getElementById("profileForm").onsubmit=e=>{
-  e.preventDefault();
-  localStorage.chat_name=document.getElementById("name").value;
-  overlay.style.opacity=0;
-  setTimeout(()=>overlay.remove(),400);
+  await typingRef.doc(MY_ID).delete();
+  input.value="";
 };
 </script>
 
