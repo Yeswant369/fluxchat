@@ -12,7 +12,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
 
 <style>
-:root{
+/* ================= SIGNAL UI (UNCHANGED) ================= */
+:root {
   --signal-blue:#2C6BED;
   --ios-curve:cubic-bezier(0.4,0,0.2,1);
 }
@@ -37,26 +38,64 @@ body{
   #sidebar{width:360px;border-right:1px solid #f3f4f6}
   #main-chat{flex:1;transform:none!important}
 }
+.btn-touch{transition:.15s ease}
 .btn-touch:active{transform:scale(.92);opacity:.7}
+.chat-list-item{transition:.2s ease}
+.chat-list-item:active{transform:scale(.98);background:#f0f2f5}
+.active-chat{background:#e8effd!important}
 .message-appear{animation:popIn .3s cubic-bezier(.175,.885,.32,1.2)}
 @keyframes popIn{
   from{opacity:0;transform:scale(.9) translateY(10px)}
   to{opacity:1;transform:scale(1) translateY(0)}
 }
 
-/* iOS typing dots */
-.typing-dots span{
-  width:8px;height:8px;background:#bbb;border-radius:50%;
-  display:inline-block;
-  animation:typing 1.4s infinite both;
+/* ================= FIXED LAYOUT ================= */
+#messages-container{
+  padding-top:1rem;
 }
-.typing-dots span:nth-child(1){animation-delay:0s}
-.typing-dots span:nth-child(2){animation-delay:.2s}
-.typing-dots span:nth-child(3){animation-delay:.4s}
-@keyframes typing{
-  0%{opacity:.2;transform:translateY(0)}
-  20%{opacity:1;transform:translateY(-4px)}
-  40%{opacity:.2;transform:translateY(0)}
+
+/* ================= TYPING INDICATOR ================= */
+.typing-dots span{
+  width:6px;height:6px;border-radius:50%;
+  background:#999;display:inline-block;
+  animation:dotBounce 1.4s infinite ease-in-out both;
+}
+.typing-dots span:nth-child(1){animation-delay:-.32s}
+.typing-dots span:nth-child(2){animation-delay:-.16s}
+@keyframes dotBounce{
+  0%,80%,100%{transform:scale(0)}
+  40%{transform:scale(1)}
+}
+
+/* ================= FORM (UNCHANGED EFFECTS) ================= */
+#onboarding-overlay{
+  position:fixed;inset:0;z-index:9999;
+  font-family:'Plus Jakarta Sans',sans-serif;
+  background:linear-gradient(135deg,#f0f4ff,#e0eaff);
+  display:flex;align-items:center;justify-content:center;
+}
+@keyframes squish-pop{
+  0%{transform:scale(1)}
+  30%{transform:scale(.92,1.08)}
+  50%{transform:scale(1.04,.96)}
+  70%{transform:scale(.98,1.02)}
+  100%{transform:scale(1)}
+}
+.squishy-element{transition:.4s cubic-bezier(.175,.885,.32,1.275)}
+.squishy-element:active{transform:scale(.95)}
+.form-card{
+  background:rgba(255,255,255,.85);
+  backdrop-filter:blur(20px);
+  border-radius:2.5rem;
+  padding:2.5rem;
+  animation:slideUp .8s cubic-bezier(.22,1,.36,1);
+}
+@keyframes slideUp{
+  from{opacity:0;transform:translateY(30px)}
+  to{opacity:1;transform:none}
+}
+.gender-option input:checked + label{
+  background:#4f46e5;color:#fff;transform:scale(1.05)
 }
 </style>
 </head>
@@ -64,13 +103,17 @@ body{
 <body class="view-list">
 
 <!-- ================= ONBOARDING ================= -->
-<div id="onboarding-overlay" class="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-  <div class="bg-white p-10 rounded-[2.5rem] shadow-xl max-w-md w-full">
+<div id="onboarding-overlay">
+  <div class="form-card w-full max-w-md">
     <h1 class="text-3xl font-extrabold text-center mb-2">Welcome</h1>
     <p class="text-gray-500 text-center mb-6">Let's get to know you better</p>
+
     <form id="profileForm" class="space-y-6">
-      <input id="name" required class="w-full px-5 py-4 rounded-2xl bg-gray-100 outline-none" placeholder="Type your name…" />
-      <button class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black">Continue</button>
+      <input id="name" required class="w-full px-5 py-4 rounded-2xl outline-none bg-white"
+        placeholder="Type your name..." />
+      <button class="w-full squishy-element bg-indigo-600 text-white py-4 rounded-2xl font-black">
+        Continue
+      </button>
     </form>
   </div>
 </div>
@@ -78,46 +121,36 @@ body{
 <!-- ================= APP ================= -->
 <div id="main-app">
 
-<!-- SIDEBAR -->
 <aside id="sidebar" class="flex flex-col">
   <div class="p-6"><h1 class="font-bold text-2xl">Chats</h1></div>
   <div class="px-3">
-    <div onclick="switchChat()" class="p-4 rounded-2xl flex gap-4 cursor-pointer bg-blue-50">
-      <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=General" class="w-14 h-14 rounded-full bg-blue-100">
-      <div>
-        <div class="font-bold">General</div>
-        <div class="text-sm text-gray-500">Public chat</div>
-      </div>
+    <div class="chat-list-item p-4 rounded-2xl flex gap-4 cursor-pointer active-chat" onclick="switchChat()">
+      <div class="font-bold">General</div>
     </div>
   </div>
 </aside>
 
-<!-- CHAT -->
 <main id="main-chat" class="flex flex-col">
 <header class="h-20 flex items-center px-6 border-b">
-<button onclick="goBack()" class="md:hidden mr-3 text-3xl font-bold">&larr;</button>
-<h2 class="font-bold">General</h2>
+  <button onclick="goBack()" class="md:hidden mr-3 text-3xl">&larr;</button>
+  <h2 class="font-bold">General</h2>
 </header>
 
-<div id="messages-container" class="flex-1 overflow-y-auto px-6 py-6 space-y-4 scrollbar-hide">
+<div id="messages-container" class="flex-1 overflow-y-auto px-6 py-6 space-y-4"></div>
 
-  <!-- typing indicator (INSIDE FLOW) -->
-  <div id="typing-indicator" class="hidden">
-    <div class="flex items-center gap-2 bg-gray-100 px-4 py-3 rounded-2xl w-fit">
-      <div class="typing-dots flex gap-1">
-        <span></span><span></span><span></span>
-      </div>
+<!-- TYPING -->
+<div id="typing-indicator" class="hidden px-6 pb-2">
+  <div class="flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-2xl w-fit">
+    <div class="typing-dots flex gap-1">
+      <span></span><span></span><span></span>
     </div>
   </div>
-
 </div>
 
 <footer class="p-4 border-t flex gap-3">
-<textarea id="message-input" rows="1"
- class="flex-1 bg-gray-50 rounded-2xl px-4 py-2 resize-none"
+<textarea id="message-input" class="flex-1 bg-gray-50 rounded-2xl px-4 py-2 resize-none"
  placeholder="Signal Message"></textarea>
-<button id="send-btn"
- class="btn-touch w-12 h-12 bg-signal-blue text-white rounded-full flex items-center justify-center">➤</button>
+<button id="send-btn" class="btn-touch w-12 h-12 bg-signal-blue text-white rounded-full">➤</button>
 </footer>
 </main>
 </div>
@@ -139,13 +172,13 @@ const MY_ID=localStorage.signal_id||(()=>{
 })();
 
 const messagesContainer=document.getElementById("messages-container");
-const messageInput=document.getElementById("message-input");
 const typingIndicator=document.getElementById("typing-indicator");
+const messageInput=document.getElementById("message-input");
 
 function switchChat(){document.body.className="view-chat";}
 function goBack(){document.body.className="view-list";}
 
-/* MESSAGE LISTENER */
+/* ===== MESSAGES ===== */
 db.collection("public").doc("general").collection("messages")
 .orderBy("createdAt")
 .onSnapshot(snap=>{
@@ -163,39 +196,39 @@ db.collection("public").doc("general").collection("messages")
     }
 
     const b=document.createElement("div");
-    b.className=m.senderId===MY_ID
-      ?"bg-signal-blue text-white px-4 py-3 rounded-2xl rounded-br-none"
-      :"bg-gray-100 px-4 py-3 rounded-2xl rounded-bl-none";
+    b.className=m.senderId===MY_ID?
+      "bg-signal-blue text-white px-4 py-3 rounded-2xl rounded-br-none":
+      "bg-gray-100 px-4 py-3 rounded-2xl rounded-bl-none";
     b.textContent=m.text;
     wrap.appendChild(b);
+
     messagesContainer.appendChild(wrap);
   });
-  messagesContainer.appendChild(typingIndicator);
   messagesContainer.scrollTop=messagesContainer.scrollHeight;
 });
 
-/* TYPING INDICATOR */
+/* ===== TYPING ===== */
 const typingRef=db.collection("public").doc("general").collection("typing").doc(MY_ID);
-let typingTimeout;
+let typingTimer;
 
 messageInput.addEventListener("input",()=>{
   typingRef.set({typing:true,name:localStorage.chat_name});
-  clearTimeout(typingTimeout);
-  typingTimeout=setTimeout(()=>{
+  clearTimeout(typingTimer);
+  typingTimer=setTimeout(()=>{
     typingRef.set({typing:false},{merge:true});
-  },800);
+  },700);
 });
 
 db.collection("public").doc("general").collection("typing")
 .onSnapshot(snap=>{
   let show=false;
-  snap.forEach(doc=>{
-    if(doc.id!==MY_ID && doc.data().typing) show=true;
+  snap.forEach(d=>{
+    if(d.id!==MY_ID && d.data().typing) show=true;
   });
   typingIndicator.classList.toggle("hidden",!show);
 });
 
-/* SEND MESSAGE */
+/* ===== SEND ===== */
 document.getElementById("send-btn").onclick=async()=>{
   if(!messageInput.value.trim())return;
   await db.collection("public").doc("general").collection("messages").add({
@@ -204,17 +237,19 @@ document.getElementById("send-btn").onclick=async()=>{
     name:localStorage.chat_name,
     createdAt:firebase.firestore.FieldValue.serverTimestamp()
   });
-  typingRef.set({typing:false},{merge:true});
   messageInput.value="";
+  typingRef.set({typing:false},{merge:true});
 };
 
-/* ONBOARDING */
+/* ===== ONBOARDING ===== */
 const overlay=document.getElementById("onboarding-overlay");
 if(localStorage.chat_name) overlay.remove();
+
 document.getElementById("profileForm").onsubmit=e=>{
   e.preventDefault();
   localStorage.chat_name=document.getElementById("name").value;
-  overlay.remove();
+  overlay.style.opacity=0;
+  setTimeout(()=>overlay.remove(),400);
 };
 </script>
 
